@@ -6,6 +6,7 @@
   <title>SOPHIA // Multi-Agent Orchestrator</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Orbitron:wght@400;700;900&display=swap" rel="stylesheet">
+  <link href="/static/persona-manager.css" rel="stylesheet">
   <style>
     :root {
       --neon-pink: #ff2d95;
@@ -354,9 +355,7 @@
     <div class="px-6 py-4 max-w-4xl mx-auto flex flex-col gap-3">
       <div class="flex items-center gap-4">
         <label class="text-xs" style="color: var(--text-dim); font-family:'Orbitron',monospace; font-size:0.6rem; letter-spacing:0.1em; min-width:70px">PERSONA</label>
-        <input id="persona-input" type="text" value="Sophia"
-               class="cyber-input rounded px-3 py-1.5 text-sm w-48">
-        <button id="persona-save" class="cyber-btn cyber-btn-sm rounded">Save</button>
+        <button id="persona-manager-btn" class="cyber-btn cyber-btn-sm rounded">MANAGE</button>
         <span id="persona-status" class="text-xs" style="color: var(--neon-green)"></span>
       </div>
       <div class="flex items-center gap-4">
@@ -367,6 +366,145 @@
         </div>
         <span id="provider-model" class="text-xs" style="color: var(--text-dim)"></span>
         <span id="provider-status" class="text-xs" style="color: var(--neon-green)"></span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Persona Manager Panel -->
+  <div id="persona-panel" class="persona-panel closed" style="background: var(--bg-panel)">
+    <div class="px-6 py-4">
+      <!-- Grid view -->
+      <div id="persona-grid-view">
+        <div class="panel-header">
+          <span class="panel-title">PERSONAS</span>
+          <button id="persona-close-btn" class="btn-back">← BACK</button>
+        </div>
+        <div id="persona-grid" class="persona-grid"></div>
+      </div>
+      <!-- Editor view -->
+      <div id="persona-editor-view" class="hidden">
+        <div class="panel-header">
+          <button id="persona-back-btn" class="btn-back">← BACK</button>
+          <span id="persona-editor-title" class="panel-title">NEW PERSONA</span>
+          <div style="width:60px"></div>
+        </div>
+        <div class="persona-editor">
+          <!-- Tabs -->
+          <div class="editor-tabs">
+            <button class="editor-tab active" data-tab="identity">Identity</button>
+            <button class="editor-tab" data-tab="personality">Personality</button>
+            <button class="editor-tab" data-tab="role">Role</button>
+            <button class="editor-tab" data-tab="guardrails">Guardrails</button>
+            <button class="editor-tab" data-tab="voice">Voice</button>
+            <button class="editor-tab" data-tab="ui">UI</button>
+          </div>
+          
+          <!-- Identity Tab -->
+          <div id="tab-identity" class="tab-content active">
+            <div class="field-group">
+              <label class="field-label">Name</label>
+              <input type="text" id="p-name" class="field-input" placeholder="e.g., Sophia">
+            </div>
+            <div class="field-group">
+              <label class="field-label">Tagline</label>
+              <input type="text" id="p-tagline" class="field-input" placeholder="e.g., Multi-agent AI orchestrator">
+            </div>
+            <div class="field-group">
+              <label class="field-label">Greeting</label>
+              <input type="text" id="p-greeting" class="field-input" placeholder="e.g., Hey! I'm Sophia. How can I help?">
+            </div>
+          </div>
+
+          <!-- Personality Tab -->
+          <div id="tab-personality" class="tab-content">
+            <div class="field-group">
+              <label class="field-label">Tone</label>
+              <input type="text" id="p-tone" class="field-input" placeholder="e.g., professional yet approachable">
+            </div>
+            <div class="field-group">
+              <label class="field-label">Style</label>
+              <input type="text" id="p-style" class="field-input" placeholder="e.g., concise and direct">
+            </div>
+            <div class="field-group">
+              <label class="field-label">Traits (one per line)</label>
+              <textarea id="p-traits" class="field-input" placeholder="e.g.,&#10;- Helpful and proactive&#10;- Uses emoji sparingly"></textarea>
+            </div>
+          </div>
+
+          <!-- Role Tab -->
+          <div id="tab-role" class="tab-content">
+            <div class="field-group">
+              <label class="field-label">Description</label>
+              <textarea id="p-role-desc" class="field-input" placeholder="You are a capable AI assistant..."></textarea>
+            </div>
+            <div class="field-group">
+              <label class="field-label">Instructions (one per line)</label>
+              <textarea id="p-instructions" class="field-input" placeholder="e.g.,&#10;- Delegate tasks to sub-agents&#10;- Verify output before presenting"></textarea>
+            </div>
+          </div>
+
+          <!-- Guardrails Tab -->
+          <div id="tab-guardrails" class="tab-content">
+            <div class="field-group">
+              <label class="field-label">Do (one per line)</label>
+              <textarea id="p-guardrails-do" class="field-input" placeholder="e.g.,&#10;- Verify agent output&#10;- Save context to memory"></textarea>
+            </div>
+            <div class="field-group">
+              <label class="field-label">Don't (one per line)</label>
+              <textarea id="p-guardrails-dont" class="field-input" placeholder="e.g.,&#10;- Expose API keys&#10;- Make up information"></textarea>
+            </div>
+          </div>
+
+          <!-- Voice Tab -->
+          <div id="tab-voice" class="tab-content">
+            <div class="field-row">
+              <div class="field-group">
+                <label class="field-label">Voice Enabled</label>
+                <select id="p-voice-enabled" class="field-input">
+                  <option value="true">Enabled</option>
+                  <option value="false">Disabled</option>
+                </select>
+              </div>
+              <div class="field-group">
+                <label class="field-label">Edge TTS Voice</label>
+                <input type="text" id="p-edge-voice" class="field-input" placeholder="en-US-AriaNeural">
+              </div>
+            </div>
+            <div class="field-group">
+              <label class="field-label">Voicebox Profile ID</label>
+              <input type="text" id="p-voicebox-profile" class="field-input" placeholder="a8337146-...">
+            </div>
+          </div>
+
+          <!-- UI Tab -->
+          <div id="tab-ui" class="tab-content">
+            <div class="field-row">
+              <div class="field-group">
+                <label class="field-label">Avatar Emoji</label>
+                <input type="text" id="p-avatar-emoji" class="field-input" placeholder="🤖">
+              </div>
+              <div class="field-group">
+                <label class="field-label">Primary Color</label>
+                <input type="text" id="p-primary-color" class="field-input" placeholder="#e94560">
+              </div>
+            </div>
+            <div class="field-group">
+              <label class="field-label">Theme</label>
+              <select id="p-theme" class="field-input">
+                <option value="dark">Dark</option>
+                <option value="light">Light</option>
+              </select>
+            </div>
+          </div>
+
+          <!-- Actions -->
+          <div class="editor-actions">
+            <button id="persona-activate-btn" class="btn-save btn-activate">ACTIVATE</button>
+            <button id="persona-save-btn" class="btn-save">SAVE</button>
+            <button id="persona-delete-btn" class="btn-save btn-danger hidden">DELETE</button>
+            <span id="persona-editor-status" class="status-msg"></span>
+          </div>
+        </div>
       </div>
     </div>
   </div>
@@ -403,706 +541,602 @@
   </main>
 
   <script>
-  const messagesEl   = document.getElementById('messages');
-  const placeholder  = document.getElementById('placeholder');
-  const form         = document.getElementById('form');
-  const input        = document.getElementById('input');
-  const sendBtn      = document.getElementById('send-btn');
-  const stopBtn      = document.getElementById('stop-btn');
-  const statusDot    = document.getElementById('status-dot');
-  const statusText   = document.getElementById('status-text');
-  const activityBar  = document.getElementById('activity-bar');
-  const activityText = document.getElementById('activity-text');
-  const headerTitle  = document.getElementById('header-title');
-  const toolIndicators = document.getElementById('tool-indicators');
-  const settingsToggle = document.getElementById('settings-toggle');
-  const settingsPanel  = document.getElementById('settings-panel');
-  const personaInput   = document.getElementById('persona-input');
-  const personaSave    = document.getElementById('persona-save');
-  const personaStatus  = document.getElementById('persona-status');
-  const tokenTimerEl   = document.getElementById('token-timer');
-  const tokenTooltip   = document.getElementById('token-tooltip-text');
+    const messagesEl   = document.getElementById('messages');
+    const placeholder  = document.getElementById('placeholder');
+    const form         = document.getElementById('form');
+    const input        = document.getElementById('input');
+    const sendBtn      = document.getElementById('send-btn');
+    const stopBtn      = document.getElementById('stop-btn');
+    const statusDot    = document.getElementById('status-dot');
+    const statusText   = document.getElementById('status-text');
+    const activityBar  = document.getElementById('activity-bar');
+    const activityText = document.getElementById('activity-text');
+    const headerTitle  = document.getElementById('header-title');
+    const toolIndicators = document.getElementById('tool-indicators');
+    const settingsToggle = document.getElementById('settings-toggle');
+    const settingsPanel  = document.getElementById('settings-panel');
+    const personaStatus  = document.getElementById('persona-status');
+    const tokenTimerEl   = document.getElementById('token-timer');
+    const tokenTooltip   = document.getElementById('token-tooltip-text');
 
-  let personaName = 'Sophia';
-  let tokenExpiresAt = 0;
-  let tokenHasRefresh = false;
-  let currentProvider = 'claude';
-  let providerOptions = [];
+    let personaName = 'Sophia';
+    let tokenExpiresAt = 0;
+    let tokenHasRefresh = false;
+    let currentProvider = 'claude';
+    let providerOptions = [];
 
-  const providerBadge   = document.getElementById('provider-badge');
-  const providerToggle  = document.getElementById('provider-toggle');
-  const providerModel   = document.getElementById('provider-model');
-  const providerStatusEl = document.getElementById('provider-status');
+    // Persona manager state
+    let personas = [];
+    let activePersonaId = 'default';
+    let editingPersonaId = null;
 
-  const AGENTS = {
-    claude:  { label: () => personaName, badgeClass: 'badge-persona', borderClass: 'agent-claude'  },
-    minimax: { label: () => 'MiniMax',   badgeClass: 'badge-minimax', borderClass: 'agent-minimax' },
-    system:  { label: () => 'System',    badgeClass: 'badge-system',  borderClass: 'agent-system'  },
-  };
+    const providerBadge   = document.getElementById('provider-badge');
+    const providerToggle  = document.getElementById('provider-toggle');
+    const providerModel   = document.getElementById('provider-model');
+    const providerStatusEl = document.getElementById('provider-status');
 
-  let ws = null;
-  let currentBubble = null;
-  let currentAgent  = null;
-  let currentGroup  = null;
-  let busy = false;
-  // Map of bubbleKey -> DOM element for parallel streaming
-  const activeBubbles = new Map();
-  // Flex-row container for side-by-side sub-agent bubbles
-  let currentAgentRow = null;
+    const AGENTS = {
+      claude:  { label: () => personaName, badgeClass: 'badge-persona', borderClass: 'agent-claude'  },
+      minimax: { label: () => 'MiniMax',   badgeClass: 'badge-minimax', borderClass: 'agent-minimax' },
+      system:  { label: () => 'System',    badgeClass: 'badge-system',  borderClass: 'agent-system'  },
+    };
 
-  /* ---- Settings panel ---- */
+    let ws = null;
+    let currentBubble = null;
+    let currentAgent  = null;
+    let currentGroup  = null;
+    let busy = false;
+    // Map of bubbleKey -> DOM element for parallel streaming
+    const activeBubbles = new Map();
+    // Flex-row container for side-by-side sub-agent bubbles
+    let currentAgentRow = null;
 
-  settingsToggle.addEventListener('click', () => {
-    settingsPanel.classList.toggle('closed');
-    settingsPanel.classList.toggle('open');
-  });
+    /* ---- Settings panel ---- */
 
-  personaSave.addEventListener('click', async () => {
-    const name = personaInput.value.trim();
-    if (!name) return;
-    try {
-      const r = await fetch('/api/persona', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name }),
+    settingsToggle.addEventListener('click', () => {
+      settingsPanel.classList.toggle('closed');
+      settingsPanel.classList.toggle('open');
+    });
+
+    /* ---- Persona Manager ---- */
+
+    const personaPanel = document.getElementById('persona-panel');
+    const personaGridView = document.getElementById('persona-grid-view');
+    const personaEditorView = document.getElementById('persona-editor-view');
+    const personaGrid = document.getElementById('persona-grid');
+    const personaManagerBtn = document.getElementById('persona-manager-btn');
+    const personaCloseBtn = document.getElementById('persona-close-btn');
+    const personaBackBtn = document.getElementById('persona-back-btn');
+    const personaEditorTitle = document.getElementById('persona-editor-title');
+    const personaActivateBtn = document.getElementById('persona-activate-btn');
+    const personaSaveBtn = document.getElementById('persona-save-btn');
+    const personaDeleteBtn = document.getElementById('persona-delete-btn');
+    const personaEditorStatus = document.getElementById('persona-editor-status');
+
+    // Tab switching
+    document.querySelectorAll('.editor-tab').forEach(tab => {
+      tab.addEventListener('click', () => {
+        document.querySelectorAll('.editor-tab').forEach(t => t.classList.remove('active'));
+        document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+        tab.classList.add('active');
+        document.getElementById('tab-' + tab.dataset.tab).classList.add('active');
       });
-      const data = await r.json();
-      personaName = data.name;
-      headerTitle.textContent = personaName.toUpperCase();
-      personaStatus.textContent = 'SAVED';
-      setTimeout(() => personaStatus.textContent = '', 2000);
-    } catch (e) {
-      personaStatus.textContent = 'ERROR';
+    });
+
+    async function loadPersonas() {
+      try {
+        const r = await fetch('/api/personas');
+        personas = await r.json();
+        activePersonaId = personas.find(p => p.active)?.id || 'default';
+        renderPersonaGrid();
+      } catch (e) {
+        console.error('Failed to load personas:', e);
+      }
     }
-  });
 
-  /* ---- Provider toggle ---- */
+    function renderPersonaGrid() {
+      personaGrid.innerHTML = '';
+      personas.forEach(p => {
+        const card = document.createElement('div');
+        card.className = 'persona-card' + (p.id === activePersonaId ? ' active' : '');
+        card.innerHTML = `
+          <span class="emoji">${p.avatar_emoji || '🤖'}</span>
+          <div class="card-name">${p.name}</div>
+          <div class="card-tagline">${p.tagline || ''}</div>
+          ${p.id === activePersonaId ? '<span class="active-badge">ACTIVE</span>' : ''}
+          <span class="color-dot" style="background:${p.primary_color || '#e94560'}"></span>
+        `;
+        card.addEventListener('click', () => openPersonaEditor(p.id));
+        personaGrid.appendChild(card);
+      });
+      // Add "new" card
+      const newCard = document.createElement('div');
+      newCard.className = 'persona-card persona-card-new';
+      newCard.innerHTML = '<span class="plus">+</span><span class="label">NEW PERSONA</span>';
+      newCard.addEventListener('click', () => openPersonaEditor(null));
+      personaGrid.appendChild(newCard);
+    }
 
-  function updateProviderUI(provider, options) {
-    currentProvider = provider;
-    providerOptions = options || providerOptions;
+    function openPersonaEditor(id) {
+      editingPersonaId = id;
+      personaGridView.classList.add('hidden');
+      personaEditorView.classList.remove('hidden');
+      
+      if (id) {
+        const p = personas.find(x => x.id === id);
+        personaEditorTitle.textContent = 'EDIT: ' + p.name.toUpperCase();
+        personaDeleteBtn.classList.remove('hidden');
+        personaActivateBtn.classList.remove('hidden');
+        
+        // Load data into fields
+        document.getElementById('p-name').value = p.name || '';
+        document.getElementById('p-tagline').value = p.tagline || '';
+        document.getElementById('p-greeting').value = p.greeting || '';
+        document.getElementById('p-tone').value = p.personality?.tone || '';
+        document.getElementById('p-style').value = p.personality?.style || '';
+        document.getElementById('p-traits').value = (p.personality?.traits || []).join('\n');
+        document.getElementById('p-role-desc').value = p.role?.description || '';
+        document.getElementById('p-instructions').value = (p.role?.instructions || []).join('\n');
+        document.getElementById('p-guardrails-do').value = (p.guardrails?.do || []).join('\n');
+        document.getElementById('p-guardrails-dont').value = (p.guardrails?.dont || []).join('\n');
+        document.getElementById('p-voice-enabled').value = p.voice_enabled !== false ? 'true' : 'false';
+        document.getElementById('p-edge-voice').value = p.voice?.edge_tts?.voice || 'en-US-AriaNeural';
+        document.getElementById('p-voicebox-profile').value = p.voice?.voicebox?.profile_id || '';
+        document.getElementById('p-avatar-emoji').value = p.avatar_emoji || '🤖';
+        document.getElementById('p-primary-color').value = p.primary_color || '#e94560';
+        document.getElementById('p-theme').value = p.theme || 'dark';
+      } else {
+        personaEditorTitle.textContent = 'NEW PERSONA';
+        personaDeleteBtn.classList.add('hidden');
+        personaActivateBtn.classList.add('hidden');
+        // Clear fields
+        ['p-name','p-tagline','p-greeting','p-tone','p-style','p-traits','p-role-desc','p-instructions','p-guardrails-do','p-guardrails-dont','p-edge-voice','p-voicebox-profile','p-avatar-emoji','p-primary-color'].forEach(id => {
+          document.getElementById(id).value = '';
+        });
+        document.getElementById('p-voice-enabled').value = 'true';
+        document.getElementById('p-theme').value = 'dark';
+        document.getElementById('p-primary-color').value = '#e94560';
+        document.getElementById('p-avatar-emoji').value = '🤖';
+      }
+      personaEditorStatus.textContent = '';
+    }
 
-    // Update toggle buttons
-    providerToggle.querySelectorAll('button').forEach(btn => {
-      btn.classList.remove('active-claude', 'active-minimax');
-      if (btn.dataset.provider === provider) {
-        btn.classList.add(provider === 'claude' ? 'active-claude' : 'active-minimax');
+    function closePersonaEditor() {
+      editingPersonaId = null;
+      personaEditorView.classList.add('hidden');
+      personaGridView.classList.remove('hidden');
+    }
+
+    function collectPersonaData() {
+      const parseList = (id) => document.getElementById(id).value.split('\n').filter(x => x.trim());
+      return {
+        name: document.getElementById('p-name').value || 'Unnamed',
+        tagline: document.getElementById('p-tagline').value,
+        greeting: document.getElementById('p-greeting').value,
+        personality: {
+          tone: document.getElementById('p-tone').value,
+          style: document.getElementById('p-style').value,
+          traits: parseList('p-traits'),
+        },
+        role: {
+          description: document.getElementById('p-role-desc').value,
+          instructions: parseList('p-instructions'),
+        },
+        guardrails: {
+          do: parseList('p-guardrails-do'),
+          dont: parseList('p-guardrails-dont'),
+        },
+        voice: {
+          enabled: document.getElementById('p-voice-enabled').value === 'true',
+          edge_tts: { voice: document.getElementById('p-edge-voice').value },
+          voicebox: { profile_id: document.getElementById('p-voicebox-profile').value },
+        },
+        ui: {
+          avatar_emoji: document.getElementById('p-avatar-emoji').value,
+          primary_color: document.getElementById('p-primary-color').value,
+          theme: document.getElementById('p-theme').value,
+        },
+      };
+    }
+
+    personaManagerBtn.addEventListener('click', () => {
+      personaPanel.classList.toggle('closed');
+      personaPanel.classList.toggle('open');
+      if (personaPanel.classList.contains('open')) loadPersonas();
+    });
+
+    personaCloseBtn.addEventListener('click', () => {
+      personaPanel.classList.remove('open');
+      personaPanel.classList.add('closed');
+    });
+
+    personaBackBtn.addEventListener('click', closePersonaEditor);
+
+    personaActivateBtn.addEventListener('click', async () => {
+      if (!editingPersonaId) return;
+      try {
+        const r = await fetch('/api/personas/active', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ id: editingPersonaId }),
+        });
+        if (r.ok) {
+          personaEditorStatus.textContent = 'ACTIVATED!';
+          personaEditorStatus.className = 'status-msg success';
+          activePersonaId = editingPersonaId;
+          personaName = document.getElementById('p-name').value;
+          headerTitle.textContent = personaName.toUpperCase();
+          loadPersonas();
+          // Also notify orchestrator via WebSocket reconnection
+          if (ws) ws.close();
+        }
+      } catch (e) {
+        personaEditorStatus.textContent = 'ERROR';
+        personaEditorStatus.className = 'status-msg error';
       }
     });
 
-    // Update header badge
-    const opt = providerOptions.find(o => o.value === provider);
-    providerBadge.textContent = opt ? opt.label.toUpperCase() : provider.toUpperCase();
-    providerBadge.className = `badge ${provider === 'claude' ? 'badge-persona' : 'badge-minimax'}`;
-
-    // Show model name
-    if (opt) {
-      providerModel.textContent = opt.model;
-    }
-  }
-
-  async function fetchOrchestrator() {
-    try {
-      const r = await fetch('/api/orchestrator');
-      const data = await r.json();
-      updateProviderUI(data.provider, data.options);
-    } catch {}
-  }
-
-  providerToggle.addEventListener('click', async (e) => {
-    const btn = e.target.closest('button[data-provider]');
-    if (!btn) return;
-    const newProvider = btn.dataset.provider;
-    if (newProvider === currentProvider) return;
-
-    providerStatusEl.textContent = 'SWITCHING...';
-    providerStatusEl.style.color = 'var(--neon-amber)';
-
-    try {
-      const r = await fetch('/api/orchestrator', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ provider: newProvider }),
-      });
-      const data = await r.json();
-      updateProviderUI(data.provider, data.options);
-
-      providerStatusEl.textContent = 'SWITCHED';
-      providerStatusEl.style.color = 'var(--neon-green)';
-
-      // Reconnect WebSocket so the new Orchestrator picks up the provider
-      if (ws) {
-        ws.onclose = null; // prevent auto-reconnect loop
-        ws.close();
-      }
-      setTimeout(() => {
-        providerStatusEl.textContent = '';
-        connect();
-      }, 300);
-    } catch (e) {
-      providerStatusEl.textContent = 'ERROR';
-      providerStatusEl.style.color = 'var(--neon-red)';
-      setTimeout(() => providerStatusEl.textContent = '', 3000);
-    }
-  });
-
-  /* ---- Tool status indicators ---- */
-
-  async function fetchToolStatus() {
-    try {
-      const r = await fetch('/api/status');
-      const statuses = await r.json();
-      renderToolIndicators(statuses);
-    } catch {}
-  }
-
-  function renderToolIndicators(statuses) {
-    toolIndicators.innerHTML = '';
-    for (const [key, info] of Object.entries(statuses)) {
-      const wrap = document.createElement('div');
-      wrap.className = 'tooltip-wrap flex items-center';
-
-      const dot = document.createElement('div');
-      dot.className = `tool-dot ${info.ok ? 'on' : 'off'}`;
-      wrap.appendChild(dot);
-
-      const tooltip = document.createElement('div');
-      tooltip.className = 'tooltip';
-      tooltip.innerHTML = `<span style="color:${info.ok ? 'var(--neon-green)' : 'var(--neon-red)'}">${info.ok ? 'ONLINE' : 'OFFLINE'}</span> &mdash; ${info.label}<br><span style="color:var(--text-dim)">${info.desc}</span>`;
-      wrap.appendChild(tooltip);
-
-      toolIndicators.appendChild(wrap);
-    }
-  }
-
-  async function fetchPersona() {
-    try {
-      const r = await fetch('/api/persona');
-      const data = await r.json();
-      personaName = data.name;
-      headerTitle.textContent = personaName.toUpperCase();
-      personaInput.value = personaName;
-    } catch {}
-  }
-
-  /* ---- WebSocket ---- */
-
-  function connect() {
-    ws = new WebSocket(`ws://${location.host}/ws`);
-
-    ws.onopen = () => {
-      statusDot.style.background = 'var(--neon-green)';
-      statusDot.style.boxShadow = '0 0 6px var(--neon-green)';
-      statusText.textContent = 'LINKED';
-      statusText.style.color = 'var(--neon-green)';
-    };
-
-    ws.onclose = () => {
-      statusDot.style.background = 'var(--neon-red)';
-      statusDot.style.boxShadow = '0 0 6px var(--neon-red)';
-      statusText.textContent = 'OFFLINE';
-      statusText.style.color = 'var(--neon-red)';
-      setTimeout(connect, 2000);
-    };
-
-    ws.onerror = () => {
-      statusDot.style.background = 'var(--neon-red)';
-      statusDot.style.boxShadow = '0 0 6px var(--neon-red)';
-      statusText.textContent = 'ERROR';
-      statusText.style.color = 'var(--neon-red)';
-    };
-
-    ws.onmessage = (event) => handleMessage(JSON.parse(event.data));
-  }
-
-  function handleMessage(msg) {
-    switch (msg.type) {
-      case 'history':
-        renderHistory(msg.history || []);
-        break;
-      case 'status':
-        showActivity(msg.content);
-        // Clear lead agent bubble on status; sub-agent bubbles stay active for parallel streams
-        activeBubbles.delete(currentProvider);
-        currentBubble = null;
-        currentAgent  = null;
-        break;
-      case 'chunk':
-        appendChunk(msg.agent, msg.content, msg.tool_name);
-        break;
-      case 'tool_use':
-        addToolUse(msg.tool_name, msg.tool_input);
-        // Clear the lead agent bubble (non-delegation tools)
-        activeBubbles.delete(currentProvider);
-        currentBubble = null;
-        currentAgent  = null;
-        break;
-      case 'tool_result':
-        addToolResult(msg.tool_name, msg.content);
-        // Clear the specific sub-agent bubble when its result arrives
-        if (msg.tool_name && (msg.tool_name.startsWith('minimax:') || msg.tool_name.startsWith('claude:'))) {
-          activeBubbles.delete(msg.tool_name);
-        }
-        currentBubble = null;
-        currentAgent  = null;
-        break;
-      case 'error':
-        addErrorMessage(msg.content);
-        hideActivity();
-        activeBubbles.clear();
-        currentAgentRow = null;
-        setBusy(false);
-        break;
-      case 'done':
-        hideActivity();
-        activeBubbles.clear();
-        currentBubble = null;
-        currentAgent  = null;
-        currentAgentRow = null;
-        setBusy(false);
-        break;
-    }
-  }
-
-  /* ---- Exchange grouping ---- */
-
-  function startNewGroup() {
-    if (placeholder) placeholder.remove();
-    const group = document.createElement('div');
-    group.className = 'exchange-group';
-    messagesEl.prepend(group);
-    currentGroup = group;
-    currentBubble = null;
-    currentAgent  = null;
-    currentAgentRow = null;
-    activeBubbles.clear();
-    return group;
-  }
-
-  function addToGroup(el) {
-    if (!currentGroup) startNewGroup();
-    currentGroup.appendChild(el);
-  }
-
-  /* ---- History replay ---- */
-
-  /**
-   * Pre-process UI messages for history replay:
-   * - Combine consecutive same-agent chunks into single messages
-   * - Group parallel sub-agent chunks into a single row entry
-   */
-  function preprocessHistoryMessages(uiMessages) {
-    const result = [];
-    const subagentBuf = new Map(); // tool_name -> { ...msg, content: combined }
-    let leadBuf = null;
-
-    function flushSubagents() {
-      if (subagentBuf.size > 0) {
-        result.push({ _type: 'subagent_group', agents: [...subagentBuf.values()] });
-        subagentBuf.clear();
-      }
-    }
-
-    function flushLead() {
-      if (leadBuf) {
-        result.push(leadBuf);
-        leadBuf = null;
-      }
-    }
-
-    for (const m of uiMessages) {
-      if (m.type === 'status' || m.type === 'done') continue;
-
-      // Sub-agent chunks have a tool_name (the agent_id)
-      if (m.type === 'chunk' && m.tool_name) {
-        flushLead();
-        const existing = subagentBuf.get(m.tool_name);
-        if (existing) {
-          existing.content += m.content;
+    personaSaveBtn.addEventListener('click', async () => {
+      const data = collectPersonaData();
+      try {
+        let r;
+        if (editingPersonaId) {
+          r = await fetch('/api/personas/' + editingPersonaId, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data),
+          });
         } else {
-          subagentBuf.set(m.tool_name, { ...m });
+          const newId = data.name.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
+          r = await fetch('/api/personas', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ id: newId, ...data }),
+          });
         }
-      } else if (m.type === 'chunk' && !m.tool_name) {
-        // Lead agent chunks (no tool_name)
-        flushSubagents();
-        if (leadBuf) {
-          leadBuf.content += m.content;
-        } else {
-          leadBuf = { ...m };
-        }
-      } else {
-        flushLead();
-        flushSubagents();
-        result.push(m);
-      }
-    }
-    flushLead();
-    flushSubagents();
-    return result;
-  }
-
-  function renderHistory(exchanges) {
-    if (!exchanges || !exchanges.length) return;
-    const ph = document.getElementById('placeholder');
-    if (ph) ph.remove();
-
-    for (const ex of exchanges) {
-      const group = document.createElement('div');
-      group.className = 'exchange-group';
-      group.style.opacity = '0.6';
-
-      const userDiv = document.createElement('div');
-      userDiv.className = 'agent-user msg-card';
-      userDiv.innerHTML = `
-        <div class="flex items-center gap-2 mb-1">
-          <span class="badge badge-user">You</span>
-          <span class="text-xs" style="color:var(--text-dim)">${formatTime(ex.timestamp)}</span>
-        </div>
-        <pre class="text-sm whitespace-pre-wrap leading-relaxed" style="color:var(--text-bright)"></pre>
-      `;
-      userDiv.querySelector('pre').textContent = ex.user;
-      group.appendChild(userDiv);
-
-      const processed = preprocessHistoryMessages(ex.ui || []);
-
-      for (const m of processed) {
-        // Parallel sub-agent group → side-by-side row
-        if (m._type === 'subagent_group') {
-          const row = document.createElement('div');
-          row.className = 'parallel-agents-row';
-          for (const agent of m.agents) {
-            const cfg = AGENTS[agent.agent] || AGENTS.system;
-            const providerLabel = agent.agent === 'claude' ? 'Claude' : 'MiniMax';
-            const div = document.createElement('div');
-            div.className = `${cfg.borderClass} msg-card`;
-            div.innerHTML = `
-              <div class="flex items-center gap-2 mb-1">
-                <span class="badge ${cfg.badgeClass}">${providerLabel}:${agent.tool_name}</span>
-              </div>
-              <pre class="msg-text text-sm whitespace-pre-wrap leading-relaxed" style="color:var(--text-bright)"></pre>
-            `;
-            div.querySelector('.msg-text').textContent = agent.content;
-            row.appendChild(div);
+        if (r.ok) {
+          personaEditorStatus.textContent = 'SAVED!';
+          personaEditorStatus.className = 'status-msg success';
+          loadPersonas();
+          if (!editingPersonaId) {
+            const result = await r.json();
+            openPersonaEditor(result.id);
           }
-          group.appendChild(row);
-          continue;
+        } else {
+          const err = await r.json();
+          personaEditorStatus.textContent = err.detail || 'ERROR';
+          personaEditorStatus.className = 'status-msg error';
         }
+      } catch (e) {
+        personaEditorStatus.textContent = 'ERROR';
+        personaEditorStatus.className = 'status-msg error';
+      }
+    });
 
-        if (m.type === 'chunk') {
-          const cfg = AGENTS[m.agent] || AGENTS.system;
-          const label = m.tool_name
-            ? `${m.agent === 'claude' ? 'Claude' : 'MiniMax'}:${m.tool_name}`
-            : (m.agent === currentProvider ? personaName : cfg.label());
-          const div = document.createElement('div');
-          div.className = `${cfg.borderClass} msg-card`;
-          div.innerHTML = `
-            <div class="flex items-center gap-2 mb-1">
-              <span class="badge ${cfg.badgeClass}">${label}</span>
-            </div>
-            <pre class="msg-text text-sm whitespace-pre-wrap leading-relaxed" style="color:var(--text-bright)"></pre>
-          `;
-          div.querySelector('.msg-text').textContent = m.content;
-          group.appendChild(div);
-        } else if (m.type === 'tool_use') {
-          const args = formatToolArgs(m.tool_input);
-          const div = document.createElement('div');
-          div.className = 'msg-card';
-          div.style.borderLeft = '2px solid var(--neon-amber)';
-          div.innerHTML = `
-            <div class="flex items-center gap-2">
-              <span class="badge badge-tool">TOOL</span>
-              <span class="text-xs font-semibold" style="color:var(--neon-amber)">${m.tool_name}</span>
-              <span class="text-xs" style="color:var(--text-dim)">${args}</span>
-            </div>
-          `;
-          group.appendChild(div);
-        } else if (m.type === 'tool_result') {
-          const div = document.createElement('div');
-          div.className = 'msg-card';
-          div.style.borderLeft = '2px solid var(--text-dim)';
-          div.innerHTML = `
-            <details class="text-xs">
-              <summary class="cursor-pointer select-none" style="color:var(--text-dim)">
-                ${m.tool_name} result (${(m.content || '').length} chars)
-              </summary>
-              <pre class="mt-1 whitespace-pre-wrap max-h-48 overflow-y-auto text-xs leading-relaxed" style="color:var(--text-mid)"></pre>
-            </details>
-          `;
-          div.querySelector('pre').textContent = m.content || '';
-          group.appendChild(div);
-        } else if (m.type === 'error') {
-          const div = document.createElement('div');
-          div.className = 'msg-card';
-          div.style.borderLeft = '2px solid var(--neon-red)';
-          div.style.color = 'var(--neon-red)';
-          div.textContent = m.content;
-          group.appendChild(div);
+    personaDeleteBtn.addEventListener('click', async () => {
+      if (!editingPersonaId || editingPersonaId === 'default') return;
+      if (!confirm('Delete this persona?')) return;
+      try {
+        const r = await fetch('/api/personas/' + editingPersonaId, { method: 'DELETE' });
+        if (r.ok) {
+          closePersonaEditor();
+          loadPersonas();
         }
+      } catch (e) {
+        personaEditorStatus.textContent = 'DELETE ERROR';
+        personaEditorStatus.className = 'status-msg error';
+      }
+    });
+
+    /* ---- Provider toggle ---- */
+
+    function updateProviderUI(provider, options) {
+      currentProvider = provider;
+      providerOptions = options || providerOptions;
+
+      // Update toggle buttons
+      providerToggle.querySelectorAll('button').forEach(btn => {
+        btn.classList.remove('active-claude', 'active-minimax');
+        if (btn.dataset.provider === provider) {
+          btn.classList.add(provider === 'claude' ? 'active-claude' : 'active-minimax');
+        }
+      });
+
+      // Update header badge
+      const opt = providerOptions.find(o => o.value === provider);
+      providerBadge.textContent = opt ? opt.label.toUpperCase() : provider.toUpperCase();
+      providerBadge.className = `badge ${provider === 'claude' ? 'badge-persona' : 'badge-minimax'}`;
+
+      // Show model name
+      if (opt) {
+        providerModel.textContent = opt.model;
+      }
+    }
+
+    providerToggle.querySelectorAll('button').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const provider = btn.dataset.provider;
+        providerStatusEl.textContent = 'SWITCHING...';
+        try {
+          const r = await fetch('/api/orchestrator', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ provider }),
+          });
+          const data = await r.json();
+          updateProviderUI(data.provider, data.options);
+          providerStatusEl.textContent = 'SWITCHED';
+          setTimeout(() => providerStatusEl.textContent = '', 2000);
+          // Reconnect WebSocket to use new provider
+          if (ws) {
+            ws.close();
+            connect();
+          }
+        } catch (e) {
+          providerStatusEl.textContent = 'ERROR';
+        }
+      });
+    });
+
+    /* ---- Orchestrator & WebSocket ---- */
+
+    async function fetchPersona() {
+      try {
+        const r = await fetch('/api/persona');
+        const data = await r.json();
+        personaName = data.name;
+        headerTitle.textContent = personaName.toUpperCase();
+      } catch (e) {
+        console.error('Failed to fetch persona:', e);
+      }
+    }
+
+    async function fetchOrchestrator() {
+      try {
+        const r = await fetch('/api/orchestrator');
+        const data = await r.json();
+        updateProviderUI(data.provider, data.options);
+      } catch (e) {
+        console.error('Failed to fetch orchestrator:', e);
+      }
+    }
+
+    async function fetchTokenInfo() {
+      try {
+        const r = await fetch('/api/token');
+        const data = await r.json();
+        tokenExpiresAt = data.expires_at * 1000;
+        tokenHasRefresh = data.has_refresh;
+        updateTokenTimer();
+      } catch (e) {
+        console.error('Failed to fetch token:', e);
+      }
+    }
+
+    function updateTokenTimer() {
+      if (!tokenExpiresAt) return;
+      const remaining = tokenExpiresAt - Date.now();
+      if (remaining <= 0) {
+        tokenTimerEl.textContent = 'TOKEN EXPIRED';
+        tokenTimerEl.className = 'token-timer critical';
+        tokenTooltip.textContent = 'Click to refresh';
+        return;
+      }
+      const hours = Math.floor(remaining / 3600000);
+      const minutes = Math.floor((remaining % 3600000) / 60000);
+      const seconds = Math.floor((remaining % 60000) / 1000);
+      tokenTimerEl.textContent = `TOKEN ${hours}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+      if (remaining < 300000) {
+        tokenTimerEl.className = 'token-timer critical';
+      } else if (remaining < 600000) {
+        tokenTimerEl.className = 'token-timer warning';
+      } else {
+        tokenTimerEl.className = 'token-timer ok';
+      }
+    }
+
+    tokenTimerEl.addEventListener('click', async () => {
+      tokenTimerEl.textContent = 'REFRESHING...';
+      try {
+        await fetch('/api/token/refresh', { method: 'POST' });
+        await fetchTokenInfo();
+      } catch (e) {
+        tokenTimerEl.textContent = 'REFRESH ERROR';
+      }
+    });
+
+    async function fetchStatus() {
+      try {
+        const r = await fetch('/api/status');
+        const statuses = await r.json();
+        toolIndicators.innerHTML = '';
+        for (const [key, info] of Object.entries(statuses)) {
+          const dot = document.createElement('div');
+          dot.className = `tool-dot ${info.ok ? 'on' : 'off'}`;
+          dot.title = info.desc;
+          toolIndicators.appendChild(dot);
+        }
+      } catch (e) {
+        console.error('Failed to fetch status:', e);
+      }
+    }
+
+    function connect() {
+      const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
+      ws = new WebSocket(`${protocol}//${location.host}/ws`);
+
+      ws.onopen = () => {
+        statusDot.style.background = 'var(--neon-green)';
+        statusText.textContent = 'CONNECTED';
+        statusText.style.color = 'var(--neon-green)';
+      };
+
+      ws.onclose = () => {
+        statusDot.style.background = 'var(--neon-red)';
+        statusText.textContent = 'DISCONNECTED';
+        statusText.style.color = 'var(--neon-red)';
+        ws = null;
+        // Reconnect after 3s
+        setTimeout(connect, 3000);
+      };
+
+      ws.onerror = (e) => {
+        console.error('WebSocket error:', e);
+      };
+
+      ws.onmessage = (e) => {
+        const msg = JSON.parse(e.data);
+        handleWSMessage(msg);
+      };
+    }
+
+    function handleWSMessage(msg) {
+      if (msg.type === 'history') {
+        // Replay history on connect
+        placeholder.remove();
+        messagesEl.innerHTML = '';
+        for (const exchange of msg.history) {
+          // User message
+          addMessage({ agent: 'user', content: exchange.user });
+          // Assistant messages (could be multiple for parallel)
+          if (exchange.assistant && Array.isArray(exchange.assistant)) {
+            for (const a of exchange.assistant) {
+              addMessage({ agent: a.agent, content: a.content });
+            }
+          } else if (exchange.assistant) {
+            addMessage({ agent: exchange.assistant.agent, content: exchange.assistant.content });
+          }
+        }
+        return;
       }
 
-      messagesEl.prepend(group);
-    }
+      const agent = msg.agent || 'system';
+      const cfg = AGENTS[agent] || AGENTS.system;
 
-    currentGroup = null;
-    currentBubble = null;
-    currentAgent = null;
-    currentAgentRow = null;
-    activeBubbles.clear();
-  }
-
-  function formatTime(iso) {
-    if (!iso) return '';
-    try {
-      const d = new Date(iso);
-      const now = new Date();
-      const diff = now - d;
-      if (diff < 60000) return 'JUST NOW';
-      if (diff < 3600000) return Math.floor(diff / 60000) + 'M AGO';
-      if (diff < 86400000) return Math.floor(diff / 3600000) + 'H AGO';
-      return d.toLocaleDateString();
-    } catch { return ''; }
-  }
-
-  /* ---- Rendering helpers ---- */
-
-  function appendChunk(agent, content, agentId) {
-    // Sub-agent chunks have an agentId (tool_name), lead chunks don't
-    const isSubAgent = !!agentId;
-    const bubbleKey = isSubAgent ? `${agent}:${agentId}` : agent;
-
-    // Check active bubbles map first (supports parallel streams)
-    const existing = activeBubbles.get(bubbleKey);
-    if (existing) {
-      existing.querySelector('.msg-text').textContent += content;
-      currentBubble = existing;
-      currentAgent  = bubbleKey;
-      return;
-    }
-
-    const cfg = AGENTS[agent] || AGENTS.system;
-    let label;
-    if (isSubAgent) {
-      // Sub-agent: show provider:agentId
-      const providerLabel = agent === 'claude' ? 'Claude' : 'MiniMax';
-      label = `${providerLabel}:${agentId}`;
-    } else if (agent === currentProvider) {
-      // Lead agent: show persona name
-      label = personaName;
-    } else {
-      label = cfg.label();
-    }
-
-    const div = document.createElement('div');
-    div.className = `${cfg.borderClass} msg-card`;
-    div.innerHTML = `
-      <div class="flex items-center gap-2 mb-1">
-        <span class="badge ${cfg.badgeClass}">${label}</span>
-      </div>
-      <pre class="msg-text text-sm whitespace-pre-wrap leading-relaxed" style="color:var(--text-bright)"></pre>
-    `;
-    div.querySelector('.msg-text').textContent = content;
-
-    // Sub-agent chunks go into a shared flex-row for side-by-side layout
-    if (isSubAgent) {
-      if (!currentAgentRow) {
-        currentAgentRow = document.createElement('div');
-        currentAgentRow.className = 'parallel-agents-row';
-        addToGroup(currentAgentRow);
-      }
-      currentAgentRow.appendChild(div);
-    } else {
-      currentAgentRow = null;
-      addToGroup(div);
-    }
-
-    activeBubbles.set(bubbleKey, div);
-    currentBubble = div;
-    currentAgent  = bubbleKey;
-  }
-
-  function addUserMessage(text) {
-    startNewGroup();
-    const div = document.createElement('div');
-    div.className = 'agent-user msg-card';
-    div.innerHTML = `
-      <div class="flex items-center gap-2 mb-1">
-        <span class="badge badge-user">You</span>
-      </div>
-      <pre class="text-sm whitespace-pre-wrap leading-relaxed" style="color:var(--text-bright)"></pre>
-    `;
-    div.querySelector('pre').textContent = text;
-    addToGroup(div);
-  }
-
-  // Keys that are task content, not useful metadata — skip in tool card args
-  const HIDDEN_TOOL_KEYS = new Set(['prompt', 'system', 'content']);
-
-  function formatToolArgs(toolInput) {
-    return Object.entries(toolInput || {})
-      .filter(([k]) => !HIDDEN_TOOL_KEYS.has(k))
-      .map(([k, v]) => {
-        if (typeof v === 'string' && v.length > 100) {
-          return `${k}: [${v.length} chars]`;
+      if (msg.type === 'chunk' || msg.type === 'stream') {
+        // Streaming chunk
+        const bubbleKey = agent;
+        let bubble = activeBubbles.get(bubbleKey);
+        if (!bubble) {
+          bubble = createBubble(agent);
+          activeBubbles.set(bubbleKey, bubble);
         }
-        const val = typeof v === 'string' && v.length > 60 ? v.slice(0, 60) + '...' : v;
-        return `${k}: ${JSON.stringify(val)}`;
-      })
-      .join(', ');
-  }
+        const content = bubble.querySelector('.msg-content');
+        content.innerHTML += msg.content;
+        content.scrollTop = content.scrollHeight;
+        return;
+      }
 
-  function addToolUse(toolName, toolInput) {
-    const args = formatToolArgs(toolInput);
+      if (msg.type === 'message' || msg.type === 'done') {
+        // Final message
+        if (msg.content) {
+          addMessage({ agent, content: msg.content });
+        }
+        if (msg.type === 'done') {
+          // End of response chain
+          busy = false;
+          sendBtn.classList.remove('hidden');
+          stopBtn.classList.add('hidden');
+          activityBar.classList.add('hidden');
+          activeBubbles.clear();
+        }
+        return;
+      }
 
-    const div = document.createElement('div');
-    div.className = 'msg-card';
-    div.style.borderLeft = '2px solid var(--neon-amber)';
-    div.innerHTML = `
-      <div class="flex items-center gap-2">
-        <span class="badge badge-tool">TOOL</span>
-        <span class="text-xs font-semibold" style="color:var(--neon-amber)">${toolName}</span>
-        <span class="text-xs" style="color:var(--text-dim)">${args}</span>
-      </div>
-    `;
-    addToGroup(div);
-  }
+      if (msg.type === 'thinking') {
+        // Claude thinking - show in bubble
+        const bubbleKey = agent;
+        let bubble = activeBubbles.get(bubbleKey);
+        if (!bubble) {
+          bubble = createBubble(agent);
+          activeBubbles.set(bubbleKey, bubble);
+        }
+        const content = bubble.querySelector('.msg-content');
+        // Show thinking indicator
+        content.innerHTML += '<span class="text-xs" style="color:var(--text-dim)">[thinking...]</span>';
+        return;
+      }
+    }
 
-  function addToolResult(toolName, content) {
-    const div = document.createElement('div');
-    div.className = 'msg-card';
-    div.style.borderLeft = '2px solid var(--text-dim)';
-    div.innerHTML = `
-      <details class="text-xs">
-        <summary class="cursor-pointer select-none" style="color:var(--text-dim)">
-          ${toolName} &mdash; ${content.length} chars
-        </summary>
-        <pre class="mt-1 whitespace-pre-wrap max-h-48 overflow-y-auto text-xs leading-relaxed" style="color:var(--text-mid)"></pre>
-      </details>
-    `;
-    div.querySelector('pre').textContent = content;
-    addToGroup(div);
-  }
+    function createBubble(agent) {
+      const cfg = AGENTS[agent] || AGENTS.system;
+      const bubble = document.createElement('div');
+      bubble.className = `msg-card ${cfg.borderClass}`;
+      bubble.innerHTML = `
+        <div class="flex items-center gap-2 mb-1">
+          <span class="badge ${cfg.badgeClass}">${cfg.label()}</span>
+        </div>
+        <div class="msg-content text-sm" style="white-space:pre-wrap;word-break:break-word"></div>
+      `;
+      // Create new group if needed
+      if (!currentGroup || currentGroup.querySelectorAll('.msg-card').length >= 2) {
+        currentGroup = document.createElement('div');
+        currentGroup.className = 'exchange-group';
+        messagesEl.insertBefore(currentGroup, messagesEl.firstChild);
+      }
+      currentGroup.appendChild(bubble);
+      return bubble;
+    }
 
-  function addErrorMessage(content) {
-    const div = document.createElement('div');
-    div.className = 'msg-card';
-    div.style.borderLeft = '2px solid var(--neon-red)';
-    div.style.color = 'var(--neon-red)';
-    div.textContent = content;
-    addToGroup(div);
-  }
+    function addMessage({ agent, content }) {
+      const cfg = AGENTS[agent] || AGENTS.system;
+      const bubble = document.createElement('div');
+      bubble.className = `msg-card ${cfg.borderClass}`;
+      bubble.innerHTML = `
+        <div class="flex items-center gap-2 mb-1">
+          <span class="badge ${cfg.badgeClass}">${cfg.label()}</span>
+        </div>
+        <div class="msg-content text-sm" style="white-space:pre-wrap;word-break:break-word">${content}</div>
+      `;
+      if (!currentGroup || currentGroup.querySelectorAll('.msg-card').length >= 2) {
+        currentGroup = document.createElement('div');
+        currentGroup.className = 'exchange-group';
+        messagesEl.insertBefore(currentGroup, messagesEl.firstChild);
+      }
+      currentGroup.appendChild(bubble);
+      messagesEl.scrollTop = 0;
+    }
 
-  function showActivity(text) {
-    activityText.textContent = (text || 'PROCESSING...').toUpperCase();
-    activityBar.classList.remove('hidden');
-  }
-
-  function hideActivity() {
-    activityBar.classList.add('hidden');
-  }
-
-  function setBusy(val) {
-    busy = val;
-    if (val) {
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const text = input.value.trim();
+      if (!text || busy) return;
+      busy = true;
+      input.value = '';
+      placeholder.remove();
       sendBtn.classList.add('hidden');
       stopBtn.classList.remove('hidden');
-      input.disabled = true;
-    } else {
-      sendBtn.classList.remove('hidden');
-      stopBtn.classList.add('hidden');
-      input.disabled = false;
-      input.focus();
-    }
-  }
+      activityBar.classList.remove('hidden');
+      activityText.textContent = 'PROCESSING...';
 
-  /* ---- Form submission ---- */
+      addMessage({ agent: 'user', content: text });
 
-  form.addEventListener('submit', (e) => {
-    e.preventDefault();
-    const text = input.value.trim();
-    if (!text || !ws || ws.readyState !== WebSocket.OPEN || busy) return;
+      ws.send(JSON.stringify({ type: 'message', content: text }));
+    });
 
-    addUserMessage(text);
-    ws.send(JSON.stringify({ type: 'message', content: text }));
-    input.value = '';
-    setBusy(true);
-  });
-
-  stopBtn.addEventListener('click', () => {
-    if (ws && ws.readyState === WebSocket.OPEN) {
+    stopBtn.addEventListener('click', () => {
       ws.send(JSON.stringify({ type: 'cancel' }));
-    }
-  });
+    });
 
-  /* ---- Token timer ---- */
+    /* ---- Init ---- */
 
-  async function fetchTokenInfo() {
-    try {
-      const r = await fetch('/api/token');
-      const info = await r.json();
-      tokenExpiresAt = info.expires_at;
-      tokenHasRefresh = info.has_refresh;
-      updateTokenDisplay();
-    } catch {}
-  }
+    fetchPersona();
+    fetchOrchestrator();
+    fetchTokenInfo();
+    fetchStatus();
+    connect();
 
-  function updateTokenDisplay() {
-    const remaining = Math.max(0, tokenExpiresAt - Date.now());
-    const hours = Math.floor(remaining / 3600000);
-    const mins  = Math.floor((remaining % 3600000) / 60000);
-    const secs  = Math.floor((remaining % 60000) / 1000);
-    const pad = n => String(n).padStart(2, '0');
+    // Periodic updates
+    setInterval(fetchTokenInfo, 1000);
+    setInterval(fetchStatus, 30000);
 
-    if (remaining <= 0) {
-      tokenTimerEl.textContent = 'TOKEN EXPIRED';
-      tokenTimerEl.className = 'token-timer critical';
-      tokenTooltip.textContent = 'OAuth token expired! Click to refresh.';
-    } else if (remaining < 3600000) {
-      // Under 1 hour — critical
-      tokenTimerEl.textContent = `TOKEN ${pad(mins)}:${pad(secs)}`;
-      tokenTimerEl.className = 'token-timer critical';
-      tokenTooltip.textContent = `Token expires in ${mins}m ${secs}s. Click to refresh.`;
-    } else if (remaining < 10800000) {
-      // Under 3 hours — warning
-      tokenTimerEl.textContent = `TOKEN ${pad(hours)}:${pad(mins)}:${pad(secs)}`;
-      tokenTimerEl.className = 'token-timer warning';
-      tokenTooltip.textContent = `Token expires in ${hours}h ${mins}m. Click to refresh.`;
-    } else {
-      tokenTimerEl.textContent = `TOKEN ${pad(hours)}:${pad(mins)}:${pad(secs)}`;
-      tokenTimerEl.className = 'token-timer ok';
-      tokenTooltip.textContent = `Token valid for ${hours}h ${mins}m`;
-    }
-  }
-
-  tokenTimerEl.addEventListener('click', async () => {
-    tokenTimerEl.textContent = 'REFRESHING...';
-    tokenTimerEl.className = 'token-timer warning';
-    try {
-      const r = await fetch('/api/token/refresh', { method: 'POST' });
-      const info = await r.json();
-      tokenExpiresAt = info.expires_at;
-      tokenHasRefresh = info.has_refresh;
-      updateTokenDisplay();
-      // Also refresh tool status since Claude indicator may change
-      fetchToolStatus();
-    } catch {
-      tokenTimerEl.textContent = 'REFRESH FAILED';
-      tokenTimerEl.className = 'token-timer critical';
-    }
-  });
-
-  // Tick every second
-  setInterval(updateTokenDisplay, 1000);
-
-  /* ---- Init ---- */
-
-  fetchPersona();
-  fetchOrchestrator();
-  fetchToolStatus();
-  fetchTokenInfo();
-  setInterval(fetchToolStatus, 30000);
-  setInterval(fetchTokenInfo, 300000); // re-fetch token info every 5 min
-  connect();
-  input.focus();
+    // Hide panels on outside click
+    document.addEventListener('click', (e) => {
+      if (!settingsPanel.contains(e.target) && !settingsToggle.contains(e.target)) {
+        settingsPanel.classList.add('closed');
+        settingsPanel.classList.remove('open');
+      }
+    });
   </script>
 </body>
 </html>

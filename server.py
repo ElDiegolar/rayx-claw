@@ -13,6 +13,7 @@ from auth import token_manager
 from config import Settings
 from models import Agent, UserMessage, WSMessage
 from orchestrator import Orchestrator
+from persona_api import router as persona_router
 from tools import _voicebox_health
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(name)s %(message)s")
@@ -28,6 +29,9 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Include persona management API
+app.include_router(persona_router)
+
 STATIC_DIR = Path(__file__).parent / "static"
 
 
@@ -38,15 +42,21 @@ async def index():
 
 @app.get("/api/persona")
 async def get_persona():
-    return {"name": settings.persona_name}
+    """Get current persona (legacy endpoint - uses active persona)."""
+    from persona_api import get_active_persona
+    p = get_active_persona()
+    return {"name": p.name}
 
 
 @app.post("/api/persona")
 async def set_persona(body: dict):
+    """Set current persona (legacy endpoint - switches active)."""
+    from persona_api import switch_active_persona
     name = body.get("name", "").strip()
     if name:
+        switch_active_persona(name)
         settings.persona_name = name
-    return {"name": settings.persona_name}
+    return {"name": name}
 
 
 @app.get("/api/orchestrator")

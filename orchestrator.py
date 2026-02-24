@@ -8,6 +8,7 @@ from agents import minimax_client
 from auth import token_manager
 from config import Settings
 from models import Agent, WSMessage
+from persona import load_persona
 from storage import HistoryStore
 from tools import TOOL_DEFINITIONS, execute_tool, memory_store
 
@@ -105,30 +106,6 @@ def _build_delegation_tool(sub_label: str) -> dict:
     }
 
 
-def _build_system_prompt_base(lead_label: str, sub_label: str) -> str:
-    """Build the base system prompt for the lead orchestrator."""
-    return f"""You are {settings.persona_name}, a capable AI assistant with access to tools. You can spin up multiple {sub_label} sub-agents to work on tasks in parallel, and you can speak aloud.
-
-Available tools:
-- Filesystem tools: read_file, write_file, list_directory, search_files, grep_files
-- run_command: Execute shell commands (start servers, run scripts, install packages, git, npm, pip, etc.). Commands run in workspace by default with configurable timeout.
-- {DELEGATE_TOOL_NAME}: Send a task to a named {sub_label} sub-agent. Each agent_id gets its own conversation history, so you can have ongoing back-and-forth with multiple agents simultaneously.
-- speak: Speak text aloud using your voice. Use this to greet the user, narrate results, or whenever voice output adds value. Use fast=true for quick short responses.
-- save_memory / recall_memory / delete_memory: Persistent memory across sessions.
-
-Multi-agent strategy:
-- Give each agent a descriptive agent_id (e.g. "researcher", "coder", "reviewer", "writer")
-- You can call {DELEGATE_TOOL_NAME} multiple times in a single turn — they run in PARALLEL
-- Each named agent remembers its conversation, so you can follow up: "coder" remembers what it wrote
-- Sub-agents have their own tools: read_file, write_file, list_directory, search_files, grep_files, run_command — they can explore the filesystem and execute commands autonomously
-- Use different system prompts to specialize agents for different roles
-- Combine results from multiple agents to produce better output
-
-You are the lead orchestrator (powered by {lead_label}). You decide what to do, what to delegate, and how to combine results. Be conversational and helpful.
-
-Workspace root: {settings.workspace}"""
-
-
 # ---------------------------------------------------------------------------
 # Orchestrator
 # ---------------------------------------------------------------------------
@@ -157,13 +134,11 @@ class Orchestrator:
             self._sub_key, self._sub["model"](),
         )
 
+        # Load the active persona
+        self._persona = load_persona(settings.persona_name)
+
         # Build tool list with the delegation tool targeting the sub-agent
         self._all_tools = TOOL_DEFINITIONS + [_build_delegation_tool(self._sub["label"])]
-
-        # System prompt base
-        self._system_prompt_base = _build_system_prompt_base(
-            self._lead["label"], self._sub["label"]
-        )
 
         self.history = HistoryStore()
         self.messages: list[dict] = self.history.get_api_messages()
@@ -185,10 +160,14 @@ class Orchestrator:
             raise CancelledError("Task cancelled by user")
 
     def _build_system_prompt(self) -> str:
+        # Use persona's system prompt builder
+        system = self._persona.build_system_prompt(settings.workspace)
+        
+        # Add memory context
         mem_context = memory_store.get_context()
         if mem_context:
-            return self._system_prompt_base + "\n\n" + mem_context
-        return self._system_prompt_base
+            system += "\n\n" + mem_context
+        return system
 
     def _repair_messages(self) -> None:
         """Fix dangling tool_use blocks that have no tool_result."""
@@ -295,6 +274,7 @@ class Orchestrator:
         lead_agent = self._lead["agent"]
         sub_agent = self._sub["agent"]
         max_rounds = 20
+        persona_name = self._persona.name
 
         for round_num in range(max_rounds):
             self._check_cancelled()
@@ -302,7 +282,7 @@ class Orchestrator:
             if round_num > 0:
                 await send(WSMessage(
                     type="status", agent=lead_agent,
-                    content=f"{settings.persona_name} thinking... (round {round_num + 1})",
+                    content=f"{persona_name} thinking... (round {round_num + 1})",
                 ))
 
             # Stream lead model's response
@@ -335,7 +315,7 @@ class Orchestrator:
 
                 await send(WSMessage(
                     type="status", agent=lead_agent,
-                    content=f"{settings.persona_name} running {name}..." + (f" ({i+1}/{len(other_calls)})" if len(other_calls) > 1 else ""),
+                    content=f"{persona_name} running {name}..." + (f" ({i+1}/{len(other_calls)})" if len(other_calls) > 1 else ""),
                 ))
                 await send(WSMessage(
                     type="tool_use", agent=lead_agent,
@@ -499,38 +479,39 @@ class Orchestrator:
             agent_messages.append({"role": "assistant", "content": response.content})
 
             tool_uses = [b for b in response.content if b.type == "tool_use"]
-
-            if not tool_uses or response.stop_reason == "end_turn":
+            if not tool_uses:
                 break
 
+            # Execute tools
             tool_results = []
-            for tu in tool_uses:
-                inp = dict(tu.input)
+            for tool_use in tool_uses:
+                name = tool_use.name
+                inp = dict(tool_use.input)
+
+                await send(WSMessage(
+                    type="status", agent=sub_agent,
+                    content=f"{sub_label} [{agent_id}] running {name}...",
+                ))
                 await send(WSMessage(
                     type="tool_use", agent=sub_agent,
-                    tool_name=tu.name, tool_input=inp,
+                    tool_name=name, tool_input=inp,
                 ))
 
-                result_text = execute_tool(tu.name, inp)
-                log.info("%s[%s] tool %s -> %d chars", sub_label, agent_id, tu.name, len(result_text))
+                result_text = execute_tool(name, inp)
+                log.info("Sub-agent %s[%s] tool %s -> %d chars", sub_label, agent_id, name, len(result_text))
 
                 display = result_text[:2000] + "..." if len(result_text) > 2000 else result_text
                 await send(WSMessage(
                     type="tool_result", agent=Agent.SYSTEM,
-                    content=display, tool_name=f"{agent_id}:{tu.name}",
+                    content=display, tool_name=name,
                 ))
 
                 tool_results.append({
                     "type": "tool_result",
-                    "tool_use_id": tu.id,
+                    "tool_use_id": tool_use.id,
                     "content": result_text,
                 })
 
             agent_messages.append({"role": "user", "content": tool_results})
-
-        log.info(
-            "%s[%s] conversation: %d messages",
-            sub_label, agent_id, len(agent_messages),
-        )
 
         return full_text

@@ -27,3 +27,8 @@ Thumbs.db
 
 # Logs
 *.log
+node_modules/
+-e .agent_history/
+.minimax/
+package-lock.json
+package.json
