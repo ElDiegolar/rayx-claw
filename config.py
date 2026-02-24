@@ -6,9 +6,10 @@ class Settings(BaseSettings):
     minimax_api_key: str = ""
     claude_model: str = "claude-opus-4-6"
     minimax_model: str = "MiniMax-M2.5"
+    orchestrator_provider: str = "claude"  # "claude" or "minimax"
     workspace: str = "E:\\Sophia"
     persona_name: str = "Sophia"
     host: str = "127.0.0.1"
     port: int = 8080
 
-    model_config = {"env_file": ".env", "env_file_encoding": "utf-8"}
+    model_config = {"env_file": ".env", "env_file_encoding": "utf-8", "extra": "ignore"}

@@ -49,6 +49,34 @@ async def set_persona(body: dict):
     return {"name": settings.persona_name}
 
 
+@app.get("/api/orchestrator")
+async def get_orchestrator():
+    """Return current orchestrator provider and available options."""
+    return {
+        "provider": settings.orchestrator_provider,
+        "options": [
+            {"value": "claude", "label": "Claude", "model": settings.claude_model},
+            {"value": "minimax", "label": "MiniMax", "model": settings.minimax_model},
+        ],
+    }
+
+
+@app.post("/api/orchestrator")
+async def set_orchestrator(body: dict):
+    """Switch the orchestrator provider. Client should reconnect WS after this."""
+    provider = body.get("provider", "").strip().lower()
+    if provider in ("claude", "minimax"):
+        settings.orchestrator_provider = provider
+        log.info("Orchestrator provider switched to: %s", provider)
+    return {
+        "provider": settings.orchestrator_provider,
+        "options": [
+            {"value": "claude", "label": "Claude", "model": settings.claude_model},
+            {"value": "minimax", "label": "MiniMax", "model": settings.minimax_model},
+        ],
+    }
+
+
 @app.get("/api/token")
 async def get_token_info():
     """Return OAuth token status for UI timer."""
@@ -122,8 +150,8 @@ async def websocket_endpoint(ws: WebSocket):
     import asyncio as _aio
 
     await ws.accept()
-    orchestrator = Orchestrator()
-    log.info("Client connected")
+    orchestrator = Orchestrator(provider=settings.orchestrator_provider)
+    log.info("Client connected (provider=%s)", settings.orchestrator_provider)
 
     async def send_ws(msg: WSMessage):
         await ws.send_text(msg.model_dump_json())

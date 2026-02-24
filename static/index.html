@@ -207,7 +207,45 @@
       overflow: hidden;
     }
     .settings-panel.closed { max-height: 0; opacity: 0; }
-    .settings-panel.open { max-height: 200px; opacity: 1; }
+    .settings-panel.open { max-height: 300px; opacity: 1; }
+
+    /* Provider toggle */
+    .provider-toggle {
+      display: inline-flex;
+      border: 1px solid var(--border-dim);
+      border-radius: 3px;
+      overflow: hidden;
+    }
+    .provider-toggle button {
+      font-family: 'Orbitron', monospace;
+      font-size: 0.55rem;
+      font-weight: 700;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      padding: 5px 14px;
+      background: transparent;
+      color: var(--text-dim);
+      border: none;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+    .provider-toggle button:not(:last-child) {
+      border-right: 1px solid var(--border-dim);
+    }
+    .provider-toggle button.active-claude {
+      background: rgba(255,45,149,0.15);
+      color: var(--neon-pink);
+      box-shadow: inset 0 0 12px rgba(255,45,149,0.1);
+    }
+    .provider-toggle button.active-minimax {
+      background: rgba(0,240,255,0.15);
+      color: var(--neon-cyan);
+      box-shadow: inset 0 0 12px rgba(0,240,255,0.1);
+    }
+    .provider-toggle button:hover:not(.active-claude):not(.active-minimax) {
+      background: rgba(255,255,255,0.03);
+      color: var(--text-mid);
+    }
 
     /* Input styling */
     .cyber-input {
@@ -283,6 +321,7 @@
     <div class="flex items-center gap-3">
       <h1 id="header-title" class="text-sm font-black tracking-widest glow-pink" style="font-family:'Orbitron',monospace">SOPHIA</h1>
       <span class="text-xs" style="color: var(--text-dim)">// MULTI-AGENT ORCHESTRATOR</span>
+      <span id="provider-badge" class="badge badge-persona" style="margin-left:4px">CLAUDE</span>
     </div>
     <div class="flex items-center gap-4">
       <!-- Tool status indicators -->
@@ -312,13 +351,22 @@
 
   <!-- Settings panel (collapsible) -->
   <div id="settings-panel" class="settings-panel closed dim-border-b" style="background: var(--bg-panel)">
-    <div class="px-6 py-4 max-w-4xl mx-auto">
+    <div class="px-6 py-4 max-w-4xl mx-auto flex flex-col gap-3">
       <div class="flex items-center gap-4">
-        <label class="text-xs" style="color: var(--text-dim); font-family:'Orbitron',monospace; font-size:0.6rem; letter-spacing:0.1em">PERSONA</label>
+        <label class="text-xs" style="color: var(--text-dim); font-family:'Orbitron',monospace; font-size:0.6rem; letter-spacing:0.1em; min-width:70px">PERSONA</label>
         <input id="persona-input" type="text" value="Sophia"
                class="cyber-input rounded px-3 py-1.5 text-sm w-48">
         <button id="persona-save" class="cyber-btn cyber-btn-sm rounded">Save</button>
         <span id="persona-status" class="text-xs" style="color: var(--neon-green)"></span>
+      </div>
+      <div class="flex items-center gap-4">
+        <label class="text-xs" style="color: var(--text-dim); font-family:'Orbitron',monospace; font-size:0.6rem; letter-spacing:0.1em; min-width:70px">LEAD AI</label>
+        <div id="provider-toggle" class="provider-toggle">
+          <button data-provider="claude" class="active-claude">Claude</button>
+          <button data-provider="minimax">MiniMax</button>
+        </div>
+        <span id="provider-model" class="text-xs" style="color: var(--text-dim)"></span>
+        <span id="provider-status" class="text-xs" style="color: var(--neon-green)"></span>
       </div>
     </div>
   </div>
@@ -378,6 +426,13 @@
   let personaName = 'Sophia';
   let tokenExpiresAt = 0;
   let tokenHasRefresh = false;
+  let currentProvider = 'claude';
+  let providerOptions = [];
+
+  const providerBadge   = document.getElementById('provider-badge');
+  const providerToggle  = document.getElementById('provider-toggle');
+  const providerModel   = document.getElementById('provider-model');
+  const providerStatusEl = document.getElementById('provider-status');
 
   const AGENTS = {
     claude:  { label: () => personaName, badgeClass: 'badge-persona', borderClass: 'agent-claude'  },
@@ -392,7 +447,7 @@
   let busy = false;
   // Map of bubbleKey -> DOM element for parallel streaming
   const activeBubbles = new Map();
-  // Flex-row container for side-by-side minimax agent bubbles
+  // Flex-row container for side-by-side sub-agent bubbles
   let currentAgentRow = null;
 
   /* ---- Settings panel ---- */
@@ -418,6 +473,76 @@
       setTimeout(() => personaStatus.textContent = '', 2000);
     } catch (e) {
       personaStatus.textContent = 'ERROR';
+    }
+  });
+
+  /* ---- Provider toggle ---- */
+
+  function updateProviderUI(provider, options) {
+    currentProvider = provider;
+    providerOptions = options || providerOptions;
+
+    // Update toggle buttons
+    providerToggle.querySelectorAll('button').forEach(btn => {
+      btn.classList.remove('active-claude', 'active-minimax');
+      if (btn.dataset.provider === provider) {
+        btn.classList.add(provider === 'claude' ? 'active-claude' : 'active-minimax');
+      }
+    });
+
+    // Update header badge
+    const opt = providerOptions.find(o => o.value === provider);
+    providerBadge.textContent = opt ? opt.label.toUpperCase() : provider.toUpperCase();
+    providerBadge.className = `badge ${provider === 'claude' ? 'badge-persona' : 'badge-minimax'}`;
+
+    // Show model name
+    if (opt) {
+      providerModel.textContent = opt.model;
+    }
+  }
+
+  async function fetchOrchestrator() {
+    try {
+      const r = await fetch('/api/orchestrator');
+      const data = await r.json();
+      updateProviderUI(data.provider, data.options);
+    } catch {}
+  }
+
+  providerToggle.addEventListener('click', async (e) => {
+    const btn = e.target.closest('button[data-provider]');
+    if (!btn) return;
+    const newProvider = btn.dataset.provider;
+    if (newProvider === currentProvider) return;
+
+    providerStatusEl.textContent = 'SWITCHING...';
+    providerStatusEl.style.color = 'var(--neon-amber)';
+
+    try {
+      const r = await fetch('/api/orchestrator', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ provider: newProvider }),
+      });
+      const data = await r.json();
+      updateProviderUI(data.provider, data.options);
+
+      providerStatusEl.textContent = 'SWITCHED';
+      providerStatusEl.style.color = 'var(--neon-green)';
+
+      // Reconnect WebSocket so the new Orchestrator picks up the provider
+      if (ws) {
+        ws.onclose = null; // prevent auto-reconnect loop
+        ws.close();
+      }
+      setTimeout(() => {
+        providerStatusEl.textContent = '';
+        connect();
+      }, 300);
+    } catch (e) {
+      providerStatusEl.textContent = 'ERROR';
+      providerStatusEl.style.color = 'var(--neon-red)';
+      setTimeout(() => providerStatusEl.textContent = '', 3000);
     }
   });
 
@@ -497,8 +622,8 @@
         break;
       case 'status':
         showActivity(msg.content);
-        // Only clear claude bubble on status; minimax bubbles stay active for parallel streams
-        activeBubbles.delete('claude');
+        // Clear lead agent bubble on status; sub-agent bubbles stay active for parallel streams
+        activeBubbles.delete(currentProvider);
         currentBubble = null;
         currentAgent  = null;
         break;
@@ -507,15 +632,15 @@
         break;
       case 'tool_use':
         addToolUse(msg.tool_name, msg.tool_input);
-        // Clear the bubble for this specific agent (non-minimax tools clear claude)
-        activeBubbles.delete('claude');
+        // Clear the lead agent bubble (non-delegation tools)
+        activeBubbles.delete(currentProvider);
         currentBubble = null;
         currentAgent  = null;
         break;
       case 'tool_result':
         addToolResult(msg.tool_name, msg.content);
-        // Clear the specific minimax agent bubble when its result arrives
-        if (msg.tool_name && msg.tool_name.startsWith('minimax:')) {
+        // Clear the specific sub-agent bubble when its result arrives
+        if (msg.tool_name && (msg.tool_name.startsWith('minimax:') || msg.tool_name.startsWith('claude:'))) {
           activeBubbles.delete(msg.tool_name);
         }
         currentBubble = null;
@@ -564,53 +689,55 @@
   /**
    * Pre-process UI messages for history replay:
    * - Combine consecutive same-agent chunks into single messages
-   * - Group parallel minimax agent chunks into a single row entry
+   * - Group parallel sub-agent chunks into a single row entry
    */
   function preprocessHistoryMessages(uiMessages) {
     const result = [];
-    const minimaxBuf = new Map(); // tool_name -> { ...msg, content: combined }
-    let claudeBuf = null;
+    const subagentBuf = new Map(); // tool_name -> { ...msg, content: combined }
+    let leadBuf = null;
 
-    function flushMinimax() {
-      if (minimaxBuf.size > 0) {
-        result.push({ _type: 'minimax_group', agents: [...minimaxBuf.values()] });
-        minimaxBuf.clear();
+    function flushSubagents() {
+      if (subagentBuf.size > 0) {
+        result.push({ _type: 'subagent_group', agents: [...subagentBuf.values()] });
+        subagentBuf.clear();
       }
     }
 
-    function flushClaude() {
-      if (claudeBuf) {
-        result.push(claudeBuf);
-        claudeBuf = null;
+    function flushLead() {
+      if (leadBuf) {
+        result.push(leadBuf);
+        leadBuf = null;
       }
     }
 
     for (const m of uiMessages) {
       if (m.type === 'status' || m.type === 'done') continue;
 
-      if (m.type === 'chunk' && m.agent === 'minimax' && m.tool_name) {
-        flushClaude();
-        const existing = minimaxBuf.get(m.tool_name);
+      // Sub-agent chunks have a tool_name (the agent_id)
+      if (m.type === 'chunk' && m.tool_name) {
+        flushLead();
+        const existing = subagentBuf.get(m.tool_name);
         if (existing) {
           existing.content += m.content;
         } else {
-          minimaxBuf.set(m.tool_name, { ...m });
+          subagentBuf.set(m.tool_name, { ...m });
         }
-      } else if (m.type === 'chunk' && m.agent === 'claude') {
-        flushMinimax();
-        if (claudeBuf) {
-          claudeBuf.content += m.content;
+      } else if (m.type === 'chunk' && !m.tool_name) {
+        // Lead agent chunks (no tool_name)
+        flushSubagents();
+        if (leadBuf) {
+          leadBuf.content += m.content;
         } else {
-          claudeBuf = { ...m };
+          leadBuf = { ...m };
         }
       } else {
-        flushClaude();
-        flushMinimax();
+        flushLead();
+        flushSubagents();
         result.push(m);
       }
     }
-    flushClaude();
-    flushMinimax();
+    flushLead();
+    flushSubagents();
     return result;
   }
 
@@ -639,17 +766,18 @@
       const processed = preprocessHistoryMessages(ex.ui || []);
 
       for (const m of processed) {
-        // Parallel minimax group → side-by-side row
-        if (m._type === 'minimax_group') {
+        // Parallel sub-agent group → side-by-side row
+        if (m._type === 'subagent_group') {
           const row = document.createElement('div');
           row.className = 'parallel-agents-row';
           for (const agent of m.agents) {
-            const cfg = AGENTS.minimax;
+            const cfg = AGENTS[agent.agent] || AGENTS.system;
+            const providerLabel = agent.agent === 'claude' ? 'Claude' : 'MiniMax';
             const div = document.createElement('div');
             div.className = `${cfg.borderClass} msg-card`;
             div.innerHTML = `
               <div class="flex items-center gap-2 mb-1">
-                <span class="badge ${cfg.badgeClass}">MiniMax:${agent.tool_name}</span>
+                <span class="badge ${cfg.badgeClass}">${providerLabel}:${agent.tool_name}</span>
               </div>
               <pre class="msg-text text-sm whitespace-pre-wrap leading-relaxed" style="color:var(--text-bright)"></pre>
             `;
@@ -662,9 +790,9 @@
 
         if (m.type === 'chunk') {
           const cfg = AGENTS[m.agent] || AGENTS.system;
-          const label = m.agent === 'minimax' && m.tool_name
-            ? `MiniMax:${m.tool_name}`
-            : (m.agent === 'claude' ? personaName : cfg.label());
+          const label = m.tool_name
+            ? `${m.agent === 'claude' ? 'Claude' : 'MiniMax'}:${m.tool_name}`
+            : (m.agent === currentProvider ? personaName : cfg.label());
           const div = document.createElement('div');
           div.className = `${cfg.borderClass} msg-card`;
           div.innerHTML = `
@@ -738,7 +866,9 @@
   /* ---- Rendering helpers ---- */
 
   function appendChunk(agent, content, agentId) {
-    const bubbleKey = agent === 'minimax' && agentId ? `${agent}:${agentId}` : agent;
+    // Sub-agent chunks have an agentId (tool_name), lead chunks don't
+    const isSubAgent = !!agentId;
+    const bubbleKey = isSubAgent ? `${agent}:${agentId}` : agent;
 
     // Check active bubbles map first (supports parallel streams)
     const existing = activeBubbles.get(bubbleKey);
@@ -751,9 +881,12 @@
 
     const cfg = AGENTS[agent] || AGENTS.system;
     let label;
-    if (agent === 'minimax' && agentId) {
-      label = `MiniMax:${agentId}`;
-    } else if (agent === 'claude') {
+    if (isSubAgent) {
+      // Sub-agent: show provider:agentId
+      const providerLabel = agent === 'claude' ? 'Claude' : 'MiniMax';
+      label = `${providerLabel}:${agentId}`;
+    } else if (agent === currentProvider) {
+      // Lead agent: show persona name
       label = personaName;
     } else {
       label = cfg.label();
@@ -769,8 +902,8 @@
     `;
     div.querySelector('.msg-text').textContent = content;
 
-    // Minimax agents go into a shared flex-row for side-by-side layout
-    if (agent === 'minimax') {
+    // Sub-agent chunks go into a shared flex-row for side-by-side layout
+    if (isSubAgent) {
       if (!currentAgentRow) {
         currentAgentRow = document.createElement('div');
         currentAgentRow.className = 'parallel-agents-row';
@@ -963,6 +1096,7 @@
   /* ---- Init ---- */
 
   fetchPersona();
+  fetchOrchestrator();
   fetchToolStatus();
   fetchTokenInfo();
   setInterval(fetchToolStatus, 30000);
