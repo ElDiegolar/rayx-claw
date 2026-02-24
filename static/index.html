@@ -1,0 +1,974 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SOPHIA // Multi-Agent Orchestrator</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Orbitron:wght@400;700;900&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --neon-pink: #ff2d95;
+      --neon-cyan: #00f0ff;
+      --neon-purple: #b829ff;
+      --neon-green: #39ff14;
+      --neon-amber: #ffaa00;
+      --neon-red: #ff003c;
+      --bg-dark: #0a0a0f;
+      --bg-panel: #0d0d14;
+      --bg-card: #111119;
+      --border-dim: #1a1a2e;
+      --text-dim: #4a4a6a;
+      --text-mid: #8888aa;
+      --text-bright: #e0e0f0;
+    }
+
+    body {
+      font-family: 'Share Tech Mono', 'Fira Code', monospace;
+      background: var(--bg-dark);
+      color: var(--text-bright);
+    }
+
+    /* Scanline overlay */
+    body::after {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background: repeating-linear-gradient(
+        transparent, transparent 2px,
+        rgba(0, 0, 0, 0.03) 2px, rgba(0, 0, 0, 0.03) 4px
+      );
+      pointer-events: none;
+      z-index: 9999;
+    }
+
+    /* Neon glow utilities */
+    .glow-pink  { text-shadow: 0 0 8px var(--neon-pink), 0 0 20px rgba(255,45,149,0.3); }
+    .glow-cyan  { text-shadow: 0 0 8px var(--neon-cyan), 0 0 20px rgba(0,240,255,0.3); }
+    .glow-green { text-shadow: 0 0 8px var(--neon-green), 0 0 20px rgba(57,255,20,0.3); }
+
+    .border-glow-pink { border-color: var(--neon-pink); box-shadow: 0 0 6px rgba(255,45,149,0.2); }
+    .border-glow-cyan { border-color: var(--neon-cyan); box-shadow: 0 0 6px rgba(0,240,255,0.2); }
+
+    /* Agent border accents */
+    .agent-claude  { border-left: 2px solid var(--neon-pink); }
+    .agent-minimax { border-left: 2px solid var(--neon-cyan); }
+    .agent-system  { border-left: 2px solid var(--text-dim); }
+    .agent-user    { border-left: 2px solid var(--neon-green); }
+    .border-l-3    { border-left-width: 2px; }
+
+    /* Scrollbar */
+    #messages::-webkit-scrollbar { width: 4px; }
+    #messages::-webkit-scrollbar-thumb { background: var(--neon-pink); border-radius: 2px; }
+    #messages::-webkit-scrollbar-track { background: transparent; }
+
+    pre { tab-size: 4; }
+
+    .badge {
+      font-family: 'Orbitron', monospace;
+      font-size: 0.55rem;
+      font-weight: 700;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      padding: 2px 8px;
+      border-radius: 2px;
+      border: 1px solid;
+    }
+    .badge-persona {
+      background: rgba(255,45,149,0.1);
+      color: var(--neon-pink);
+      border-color: rgba(255,45,149,0.4);
+    }
+    .badge-minimax {
+      background: rgba(0,240,255,0.1);
+      color: var(--neon-cyan);
+      border-color: rgba(0,240,255,0.4);
+    }
+    .badge-system {
+      background: rgba(74,74,106,0.2);
+      color: var(--text-dim);
+      border-color: rgba(74,74,106,0.3);
+    }
+    .badge-user {
+      background: rgba(57,255,20,0.1);
+      color: var(--neon-green);
+      border-color: rgba(57,255,20,0.4);
+    }
+    .badge-tool {
+      background: rgba(255,170,0,0.1);
+      color: var(--neon-amber);
+      border-color: rgba(255,170,0,0.4);
+    }
+
+    .exchange-group {
+      display: flex;
+      flex-direction: column-reverse;
+      gap: 0.5rem;
+      border-bottom: 1px solid var(--border-dim);
+      padding-bottom: 1rem;
+      margin-bottom: 1rem;
+    }
+    .exchange-group:first-child { border-bottom: none; }
+
+    /* Side-by-side layout for parallel agent streams */
+    .parallel-agents-row {
+      display: flex;
+      gap: 0.5rem;
+      width: 100%;
+    }
+    .parallel-agents-row > .msg-card {
+      flex: 1;
+      min-width: 0;
+      max-height: 60vh;
+      overflow-y: auto;
+    }
+    .parallel-agents-row > .msg-card::-webkit-scrollbar { width: 3px; }
+    .parallel-agents-row > .msg-card::-webkit-scrollbar-thumb { background: var(--neon-cyan); border-radius: 2px; }
+    .parallel-agents-row > .msg-card::-webkit-scrollbar-track { background: transparent; }
+
+    .msg-card {
+      background: var(--bg-card);
+      border-radius: 3px;
+      padding: 0.5rem 0.75rem;
+    }
+
+    /* Tool status dots */
+    .tool-dot {
+      width: 7px; height: 7px;
+      border-radius: 50%;
+      transition: all 0.3s;
+    }
+    .tool-dot.on  {
+      background: var(--neon-green);
+      box-shadow: 0 0 6px var(--neon-green), 0 0 12px rgba(57,255,20,0.3);
+    }
+    .tool-dot.off {
+      background: var(--neon-red);
+      box-shadow: 0 0 6px var(--neon-red), 0 0 12px rgba(255,0,60,0.3);
+    }
+    .tool-dot.unknown { background: var(--text-dim); }
+
+    /* Token timer */
+    .token-timer {
+      font-family: 'Share Tech Mono', monospace;
+      font-size: 0.6rem;
+      letter-spacing: 0.05em;
+      padding: 2px 8px;
+      border: 1px solid var(--border-dim);
+      border-radius: 2px;
+      cursor: pointer;
+      transition: all 0.3s;
+    }
+    .token-timer.ok {
+      color: var(--neon-green);
+      border-color: rgba(57,255,20,0.3);
+    }
+    .token-timer.warning {
+      color: var(--neon-amber);
+      border-color: rgba(255,170,0,0.3);
+      animation: pulse-amber 2s infinite;
+    }
+    .token-timer.critical {
+      color: var(--neon-red);
+      border-color: rgba(255,0,60,0.4);
+      animation: pulse-red 1s infinite;
+    }
+    @keyframes pulse-amber {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.6; }
+    }
+    @keyframes pulse-red {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.5; }
+    }
+
+    .tooltip-wrap { position: relative; }
+    .tooltip-wrap .tooltip {
+      display: none;
+      position: absolute;
+      top: calc(100% + 8px);
+      right: -4px;
+      background: var(--bg-panel);
+      border: 1px solid var(--neon-cyan);
+      box-shadow: 0 0 10px rgba(0,240,255,0.15);
+      border-radius: 2px;
+      padding: 6px 10px;
+      font-size: 0.6rem;
+      color: var(--text-mid);
+      white-space: nowrap;
+      z-index: 50;
+      pointer-events: none;
+    }
+    .tooltip-wrap:hover .tooltip { display: block; }
+
+    /* Settings panel */
+    .settings-panel {
+      transition: max-height 0.2s ease, opacity 0.2s ease;
+      overflow: hidden;
+    }
+    .settings-panel.closed { max-height: 0; opacity: 0; }
+    .settings-panel.open { max-height: 200px; opacity: 1; }
+
+    /* Input styling */
+    .cyber-input {
+      background: var(--bg-panel);
+      border: 1px solid var(--border-dim);
+      color: var(--text-bright);
+      font-family: 'Share Tech Mono', monospace;
+      transition: border-color 0.2s, box-shadow 0.2s;
+    }
+    .cyber-input:focus {
+      outline: none;
+      border-color: var(--neon-pink);
+      box-shadow: 0 0 8px rgba(255,45,149,0.2);
+    }
+    .cyber-input::placeholder { color: var(--text-dim); }
+
+    .cyber-btn {
+      font-family: 'Orbitron', monospace;
+      font-weight: 700;
+      font-size: 0.7rem;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      background: transparent;
+      border: 1px solid var(--neon-pink);
+      color: var(--neon-pink);
+      transition: all 0.15s;
+      cursor: pointer;
+    }
+    .cyber-btn:hover {
+      background: rgba(255,45,149,0.1);
+      box-shadow: 0 0 12px rgba(255,45,149,0.3);
+    }
+    .cyber-btn:disabled {
+      opacity: 0.3;
+      cursor: not-allowed;
+    }
+    .cyber-btn-stop {
+      border-color: var(--neon-red);
+      color: var(--neon-red);
+    }
+    .cyber-btn-stop:hover {
+      background: rgba(255,0,60,0.15);
+      box-shadow: 0 0 12px rgba(255,0,60,0.4);
+    }
+    .cyber-btn-sm {
+      font-size: 0.6rem;
+      padding: 4px 12px;
+      border-color: var(--neon-cyan);
+      color: var(--neon-cyan);
+    }
+    .cyber-btn-sm:hover {
+      background: rgba(0,240,255,0.1);
+      box-shadow: 0 0 8px rgba(0,240,255,0.3);
+    }
+
+    /* Activity spinner */
+    .spinner { animation: spin 0.8s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* Header divider line with neon gradient */
+    .neon-border-b {
+      border-bottom: 1px solid transparent;
+      border-image: linear-gradient(90deg, var(--neon-pink), var(--neon-purple), var(--neon-cyan)) 1;
+    }
+
+    .dim-border-b { border-bottom: 1px solid var(--border-dim); }
+  </style>
+</head>
+<body class="min-h-screen flex flex-col">
+
+  <!-- Header -->
+  <header class="neon-border-b px-6 py-3 flex items-center justify-between shrink-0" style="background: var(--bg-panel)">
+    <div class="flex items-center gap-3">
+      <h1 id="header-title" class="text-sm font-black tracking-widest glow-pink" style="font-family:'Orbitron',monospace">SOPHIA</h1>
+      <span class="text-xs" style="color: var(--text-dim)">// MULTI-AGENT ORCHESTRATOR</span>
+    </div>
+    <div class="flex items-center gap-4">
+      <!-- Tool status indicators -->
+      <div id="tool-indicators" class="flex items-center gap-2"></div>
+      <!-- Token timer -->
+      <div class="tooltip-wrap">
+        <div id="token-timer" class="token-timer ok" title="Click to refresh token">TOKEN --:--:--</div>
+        <div class="tooltip">
+          <span id="token-tooltip-text">OAuth token countdown</span>
+        </div>
+      </div>
+      <!-- WS connection status -->
+      <div class="flex items-center gap-2">
+        <span id="status-dot" class="w-2 h-2 rounded-full" style="background: var(--text-dim)"></span>
+        <span id="status-text" class="text-xs" style="color: var(--text-dim)">CONNECTING...</span>
+      </div>
+      <!-- Settings gear -->
+      <button id="settings-toggle" class="transition-colors" style="color: var(--text-dim)" title="Settings">
+        <svg class="w-4 h-4 hover:drop-shadow-[0_0_6px_rgba(0,240,255,0.5)]" fill="none" stroke="currentColor" viewBox="0 0 24 24" style="transition: filter 0.2s">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+            d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/>
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+        </svg>
+      </button>
+    </div>
+  </header>
+
+  <!-- Settings panel (collapsible) -->
+  <div id="settings-panel" class="settings-panel closed dim-border-b" style="background: var(--bg-panel)">
+    <div class="px-6 py-4 max-w-4xl mx-auto">
+      <div class="flex items-center gap-4">
+        <label class="text-xs" style="color: var(--text-dim); font-family:'Orbitron',monospace; font-size:0.6rem; letter-spacing:0.1em">PERSONA</label>
+        <input id="persona-input" type="text" value="Sophia"
+               class="cyber-input rounded px-3 py-1.5 text-sm w-48">
+        <button id="persona-save" class="cyber-btn cyber-btn-sm rounded">Save</button>
+        <span id="persona-status" class="text-xs" style="color: var(--neon-green)"></span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Input -->
+  <div class="dim-border-b p-4 shrink-0" style="background: var(--bg-panel)">
+    <form id="form" class="flex gap-3 max-w-4xl mx-auto">
+      <input id="input" type="text" placeholder="// ENTER COMMAND..."
+             autocomplete="off"
+             class="cyber-input flex-1 rounded px-4 py-2.5 text-sm">
+      <button id="send-btn" type="submit" class="cyber-btn px-6 py-2.5 rounded">
+        EXEC
+      </button>
+      <button id="stop-btn" type="button" class="cyber-btn cyber-btn-stop px-6 py-2.5 rounded hidden">
+        STOP
+      </button>
+    </form>
+  </div>
+
+  <!-- Activity indicator -->
+  <div id="activity-bar" class="hidden dim-border-b px-6 py-2 shrink-0" style="background: rgba(255,45,149,0.03)">
+    <div class="flex items-center gap-2">
+      <div class="spinner w-3 h-3 border border-t-transparent rounded-full" style="border-color: var(--neon-pink); border-top-color: transparent"></div>
+      <span id="activity-text" class="text-xs" style="color: var(--neon-pink); font-family:'Orbitron',monospace; font-size:0.6rem; letter-spacing:0.08em"></span>
+    </div>
+  </div>
+
+  <!-- Messages -->
+  <main id="messages" class="flex-1 overflow-y-auto px-6 py-4">
+    <div id="placeholder" class="text-center text-xs py-12" style="color: var(--text-dim)">
+      <div style="font-family:'Orbitron',monospace; font-size:0.65rem; letter-spacing:0.15em; margin-bottom:0.5rem" class="glow-pink">SYSTEM READY</div>
+      <div>Multi-agent orchestrator online. Enter a command to begin.</div>
+    </div>
+  </main>
+
+  <script>
+  const messagesEl   = document.getElementById('messages');
+  const placeholder  = document.getElementById('placeholder');
+  const form         = document.getElementById('form');
+  const input        = document.getElementById('input');
+  const sendBtn      = document.getElementById('send-btn');
+  const stopBtn      = document.getElementById('stop-btn');
+  const statusDot    = document.getElementById('status-dot');
+  const statusText   = document.getElementById('status-text');
+  const activityBar  = document.getElementById('activity-bar');
+  const activityText = document.getElementById('activity-text');
+  const headerTitle  = document.getElementById('header-title');
+  const toolIndicators = document.getElementById('tool-indicators');
+  const settingsToggle = document.getElementById('settings-toggle');
+  const settingsPanel  = document.getElementById('settings-panel');
+  const personaInput   = document.getElementById('persona-input');
+  const personaSave    = document.getElementById('persona-save');
+  const personaStatus  = document.getElementById('persona-status');
+  const tokenTimerEl   = document.getElementById('token-timer');
+  const tokenTooltip   = document.getElementById('token-tooltip-text');
+
+  let personaName = 'Sophia';
+  let tokenExpiresAt = 0;
+  let tokenHasRefresh = false;
+
+  const AGENTS = {
+    claude:  { label: () => personaName, badgeClass: 'badge-persona', borderClass: 'agent-claude'  },
+    minimax: { label: () => 'MiniMax',   badgeClass: 'badge-minimax', borderClass: 'agent-minimax' },
+    system:  { label: () => 'System',    badgeClass: 'badge-system',  borderClass: 'agent-system'  },
+  };
+
+  let ws = null;
+  let currentBubble = null;
+  let currentAgent  = null;
+  let currentGroup  = null;
+  let busy = false;
+  // Map of bubbleKey -> DOM element for parallel streaming
+  const activeBubbles = new Map();
+  // Flex-row container for side-by-side minimax agent bubbles
+  let currentAgentRow = null;
+
+  /* ---- Settings panel ---- */
+
+  settingsToggle.addEventListener('click', () => {
+    settingsPanel.classList.toggle('closed');
+    settingsPanel.classList.toggle('open');
+  });
+
+  personaSave.addEventListener('click', async () => {
+    const name = personaInput.value.trim();
+    if (!name) return;
+    try {
+      const r = await fetch('/api/persona', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name }),
+      });
+      const data = await r.json();
+      personaName = data.name;
+      headerTitle.textContent = personaName.toUpperCase();
+      personaStatus.textContent = 'SAVED';
+      setTimeout(() => personaStatus.textContent = '', 2000);
+    } catch (e) {
+      personaStatus.textContent = 'ERROR';
+    }
+  });
+
+  /* ---- Tool status indicators ---- */
+
+  async function fetchToolStatus() {
+    try {
+      const r = await fetch('/api/status');
+      const statuses = await r.json();
+      renderToolIndicators(statuses);
+    } catch {}
+  }
+
+  function renderToolIndicators(statuses) {
+    toolIndicators.innerHTML = '';
+    for (const [key, info] of Object.entries(statuses)) {
+      const wrap = document.createElement('div');
+      wrap.className = 'tooltip-wrap flex items-center';
+
+      const dot = document.createElement('div');
+      dot.className = `tool-dot ${info.ok ? 'on' : 'off'}`;
+      wrap.appendChild(dot);
+
+      const tooltip = document.createElement('div');
+      tooltip.className = 'tooltip';
+      tooltip.innerHTML = `<span style="color:${info.ok ? 'var(--neon-green)' : 'var(--neon-red)'}">${info.ok ? 'ONLINE' : 'OFFLINE'}</span> &mdash; ${info.label}<br><span style="color:var(--text-dim)">${info.desc}</span>`;
+      wrap.appendChild(tooltip);
+
+      toolIndicators.appendChild(wrap);
+    }
+  }
+
+  async function fetchPersona() {
+    try {
+      const r = await fetch('/api/persona');
+      const data = await r.json();
+      personaName = data.name;
+      headerTitle.textContent = personaName.toUpperCase();
+      personaInput.value = personaName;
+    } catch {}
+  }
+
+  /* ---- WebSocket ---- */
+
+  function connect() {
+    ws = new WebSocket(`ws://${location.host}/ws`);
+
+    ws.onopen = () => {
+      statusDot.style.background = 'var(--neon-green)';
+      statusDot.style.boxShadow = '0 0 6px var(--neon-green)';
+      statusText.textContent = 'LINKED';
+      statusText.style.color = 'var(--neon-green)';
+    };
+
+    ws.onclose = () => {
+      statusDot.style.background = 'var(--neon-red)';
+      statusDot.style.boxShadow = '0 0 6px var(--neon-red)';
+      statusText.textContent = 'OFFLINE';
+      statusText.style.color = 'var(--neon-red)';
+      setTimeout(connect, 2000);
+    };
+
+    ws.onerror = () => {
+      statusDot.style.background = 'var(--neon-red)';
+      statusDot.style.boxShadow = '0 0 6px var(--neon-red)';
+      statusText.textContent = 'ERROR';
+      statusText.style.color = 'var(--neon-red)';
+    };
+
+    ws.onmessage = (event) => handleMessage(JSON.parse(event.data));
+  }
+
+  function handleMessage(msg) {
+    switch (msg.type) {
+      case 'history':
+        renderHistory(msg.history || []);
+        break;
+      case 'status':
+        showActivity(msg.content);
+        // Only clear claude bubble on status; minimax bubbles stay active for parallel streams
+        activeBubbles.delete('claude');
+        currentBubble = null;
+        currentAgent  = null;
+        break;
+      case 'chunk':
+        appendChunk(msg.agent, msg.content, msg.tool_name);
+        break;
+      case 'tool_use':
+        addToolUse(msg.tool_name, msg.tool_input);
+        // Clear the bubble for this specific agent (non-minimax tools clear claude)
+        activeBubbles.delete('claude');
+        currentBubble = null;
+        currentAgent  = null;
+        break;
+      case 'tool_result':
+        addToolResult(msg.tool_name, msg.content);
+        // Clear the specific minimax agent bubble when its result arrives
+        if (msg.tool_name && msg.tool_name.startsWith('minimax:')) {
+          activeBubbles.delete(msg.tool_name);
+        }
+        currentBubble = null;
+        currentAgent  = null;
+        break;
+      case 'error':
+        addErrorMessage(msg.content);
+        hideActivity();
+        activeBubbles.clear();
+        currentAgentRow = null;
+        setBusy(false);
+        break;
+      case 'done':
+        hideActivity();
+        activeBubbles.clear();
+        currentBubble = null;
+        currentAgent  = null;
+        currentAgentRow = null;
+        setBusy(false);
+        break;
+    }
+  }
+
+  /* ---- Exchange grouping ---- */
+
+  function startNewGroup() {
+    if (placeholder) placeholder.remove();
+    const group = document.createElement('div');
+    group.className = 'exchange-group';
+    messagesEl.prepend(group);
+    currentGroup = group;
+    currentBubble = null;
+    currentAgent  = null;
+    currentAgentRow = null;
+    activeBubbles.clear();
+    return group;
+  }
+
+  function addToGroup(el) {
+    if (!currentGroup) startNewGroup();
+    currentGroup.appendChild(el);
+  }
+
+  /* ---- History replay ---- */
+
+  /**
+   * Pre-process UI messages for history replay:
+   * - Combine consecutive same-agent chunks into single messages
+   * - Group parallel minimax agent chunks into a single row entry
+   */
+  function preprocessHistoryMessages(uiMessages) {
+    const result = [];
+    const minimaxBuf = new Map(); // tool_name -> { ...msg, content: combined }
+    let claudeBuf = null;
+
+    function flushMinimax() {
+      if (minimaxBuf.size > 0) {
+        result.push({ _type: 'minimax_group', agents: [...minimaxBuf.values()] });
+        minimaxBuf.clear();
+      }
+    }
+
+    function flushClaude() {
+      if (claudeBuf) {
+        result.push(claudeBuf);
+        claudeBuf = null;
+      }
+    }
+
+    for (const m of uiMessages) {
+      if (m.type === 'status' || m.type === 'done') continue;
+
+      if (m.type === 'chunk' && m.agent === 'minimax' && m.tool_name) {
+        flushClaude();
+        const existing = minimaxBuf.get(m.tool_name);
+        if (existing) {
+          existing.content += m.content;
+        } else {
+          minimaxBuf.set(m.tool_name, { ...m });
+        }
+      } else if (m.type === 'chunk' && m.agent === 'claude') {
+        flushMinimax();
+        if (claudeBuf) {
+          claudeBuf.content += m.content;
+        } else {
+          claudeBuf = { ...m };
+        }
+      } else {
+        flushClaude();
+        flushMinimax();
+        result.push(m);
+      }
+    }
+    flushClaude();
+    flushMinimax();
+    return result;
+  }
+
+  function renderHistory(exchanges) {
+    if (!exchanges || !exchanges.length) return;
+    const ph = document.getElementById('placeholder');
+    if (ph) ph.remove();
+
+    for (const ex of exchanges) {
+      const group = document.createElement('div');
+      group.className = 'exchange-group';
+      group.style.opacity = '0.6';
+
+      const userDiv = document.createElement('div');
+      userDiv.className = 'agent-user msg-card';
+      userDiv.innerHTML = `
+        <div class="flex items-center gap-2 mb-1">
+          <span class="badge badge-user">You</span>
+          <span class="text-xs" style="color:var(--text-dim)">${formatTime(ex.timestamp)}</span>
+        </div>
+        <pre class="text-sm whitespace-pre-wrap leading-relaxed" style="color:var(--text-bright)"></pre>
+      `;
+      userDiv.querySelector('pre').textContent = ex.user;
+      group.appendChild(userDiv);
+
+      const processed = preprocessHistoryMessages(ex.ui || []);
+
+      for (const m of processed) {
+        // Parallel minimax group → side-by-side row
+        if (m._type === 'minimax_group') {
+          const row = document.createElement('div');
+          row.className = 'parallel-agents-row';
+          for (const agent of m.agents) {
+            const cfg = AGENTS.minimax;
+            const div = document.createElement('div');
+            div.className = `${cfg.borderClass} msg-card`;
+            div.innerHTML = `
+              <div class="flex items-center gap-2 mb-1">
+                <span class="badge ${cfg.badgeClass}">MiniMax:${agent.tool_name}</span>
+              </div>
+              <pre class="msg-text text-sm whitespace-pre-wrap leading-relaxed" style="color:var(--text-bright)"></pre>
+            `;
+            div.querySelector('.msg-text').textContent = agent.content;
+            row.appendChild(div);
+          }
+          group.appendChild(row);
+          continue;
+        }
+
+        if (m.type === 'chunk') {
+          const cfg = AGENTS[m.agent] || AGENTS.system;
+          const label = m.agent === 'minimax' && m.tool_name
+            ? `MiniMax:${m.tool_name}`
+            : (m.agent === 'claude' ? personaName : cfg.label());
+          const div = document.createElement('div');
+          div.className = `${cfg.borderClass} msg-card`;
+          div.innerHTML = `
+            <div class="flex items-center gap-2 mb-1">
+              <span class="badge ${cfg.badgeClass}">${label}</span>
+            </div>
+            <pre class="msg-text text-sm whitespace-pre-wrap leading-relaxed" style="color:var(--text-bright)"></pre>
+          `;
+          div.querySelector('.msg-text').textContent = m.content;
+          group.appendChild(div);
+        } else if (m.type === 'tool_use') {
+          const args = formatToolArgs(m.tool_input);
+          const div = document.createElement('div');
+          div.className = 'msg-card';
+          div.style.borderLeft = '2px solid var(--neon-amber)';
+          div.innerHTML = `
+            <div class="flex items-center gap-2">
+              <span class="badge badge-tool">TOOL</span>
+              <span class="text-xs font-semibold" style="color:var(--neon-amber)">${m.tool_name}</span>
+              <span class="text-xs" style="color:var(--text-dim)">${args}</span>
+            </div>
+          `;
+          group.appendChild(div);
+        } else if (m.type === 'tool_result') {
+          const div = document.createElement('div');
+          div.className = 'msg-card';
+          div.style.borderLeft = '2px solid var(--text-dim)';
+          div.innerHTML = `
+            <details class="text-xs">
+              <summary class="cursor-pointer select-none" style="color:var(--text-dim)">
+                ${m.tool_name} result (${(m.content || '').length} chars)
+              </summary>
+              <pre class="mt-1 whitespace-pre-wrap max-h-48 overflow-y-auto text-xs leading-relaxed" style="color:var(--text-mid)"></pre>
+            </details>
+          `;
+          div.querySelector('pre').textContent = m.content || '';
+          group.appendChild(div);
+        } else if (m.type === 'error') {
+          const div = document.createElement('div');
+          div.className = 'msg-card';
+          div.style.borderLeft = '2px solid var(--neon-red)';
+          div.style.color = 'var(--neon-red)';
+          div.textContent = m.content;
+          group.appendChild(div);
+        }
+      }
+
+      messagesEl.prepend(group);
+    }
+
+    currentGroup = null;
+    currentBubble = null;
+    currentAgent = null;
+    currentAgentRow = null;
+    activeBubbles.clear();
+  }
+
+  function formatTime(iso) {
+    if (!iso) return '';
+    try {
+      const d = new Date(iso);
+      const now = new Date();
+      const diff = now - d;
+      if (diff < 60000) return 'JUST NOW';
+      if (diff < 3600000) return Math.floor(diff / 60000) + 'M AGO';
+      if (diff < 86400000) return Math.floor(diff / 3600000) + 'H AGO';
+      return d.toLocaleDateString();
+    } catch { return ''; }
+  }
+
+  /* ---- Rendering helpers ---- */
+
+  function appendChunk(agent, content, agentId) {
+    const bubbleKey = agent === 'minimax' && agentId ? `${agent}:${agentId}` : agent;
+
+    // Check active bubbles map first (supports parallel streams)
+    const existing = activeBubbles.get(bubbleKey);
+    if (existing) {
+      existing.querySelector('.msg-text').textContent += content;
+      currentBubble = existing;
+      currentAgent  = bubbleKey;
+      return;
+    }
+
+    const cfg = AGENTS[agent] || AGENTS.system;
+    let label;
+    if (agent === 'minimax' && agentId) {
+      label = `MiniMax:${agentId}`;
+    } else if (agent === 'claude') {
+      label = personaName;
+    } else {
+      label = cfg.label();
+    }
+
+    const div = document.createElement('div');
+    div.className = `${cfg.borderClass} msg-card`;
+    div.innerHTML = `
+      <div class="flex items-center gap-2 mb-1">
+        <span class="badge ${cfg.badgeClass}">${label}</span>
+      </div>
+      <pre class="msg-text text-sm whitespace-pre-wrap leading-relaxed" style="color:var(--text-bright)"></pre>
+    `;
+    div.querySelector('.msg-text').textContent = content;
+
+    // Minimax agents go into a shared flex-row for side-by-side layout
+    if (agent === 'minimax') {
+      if (!currentAgentRow) {
+        currentAgentRow = document.createElement('div');
+        currentAgentRow.className = 'parallel-agents-row';
+        addToGroup(currentAgentRow);
+      }
+      currentAgentRow.appendChild(div);
+    } else {
+      currentAgentRow = null;
+      addToGroup(div);
+    }
+
+    activeBubbles.set(bubbleKey, div);
+    currentBubble = div;
+    currentAgent  = bubbleKey;
+  }
+
+  function addUserMessage(text) {
+    startNewGroup();
+    const div = document.createElement('div');
+    div.className = 'agent-user msg-card';
+    div.innerHTML = `
+      <div class="flex items-center gap-2 mb-1">
+        <span class="badge badge-user">You</span>
+      </div>
+      <pre class="text-sm whitespace-pre-wrap leading-relaxed" style="color:var(--text-bright)"></pre>
+    `;
+    div.querySelector('pre').textContent = text;
+    addToGroup(div);
+  }
+
+  // Keys that are task content, not useful metadata — skip in tool card args
+  const HIDDEN_TOOL_KEYS = new Set(['prompt', 'system', 'content']);
+
+  function formatToolArgs(toolInput) {
+    return Object.entries(toolInput || {})
+      .filter(([k]) => !HIDDEN_TOOL_KEYS.has(k))
+      .map(([k, v]) => {
+        if (typeof v === 'string' && v.length > 100) {
+          return `${k}: [${v.length} chars]`;
+        }
+        const val = typeof v === 'string' && v.length > 60 ? v.slice(0, 60) + '...' : v;
+        return `${k}: ${JSON.stringify(val)}`;
+      })
+      .join(', ');
+  }
+
+  function addToolUse(toolName, toolInput) {
+    const args = formatToolArgs(toolInput);
+
+    const div = document.createElement('div');
+    div.className = 'msg-card';
+    div.style.borderLeft = '2px solid var(--neon-amber)';
+    div.innerHTML = `
+      <div class="flex items-center gap-2">
+        <span class="badge badge-tool">TOOL</span>
+        <span class="text-xs font-semibold" style="color:var(--neon-amber)">${toolName}</span>
+        <span class="text-xs" style="color:var(--text-dim)">${args}</span>
+      </div>
+    `;
+    addToGroup(div);
+  }
+
+  function addToolResult(toolName, content) {
+    const div = document.createElement('div');
+    div.className = 'msg-card';
+    div.style.borderLeft = '2px solid var(--text-dim)';
+    div.innerHTML = `
+      <details class="text-xs">
+        <summary class="cursor-pointer select-none" style="color:var(--text-dim)">
+          ${toolName} &mdash; ${content.length} chars
+        </summary>
+        <pre class="mt-1 whitespace-pre-wrap max-h-48 overflow-y-auto text-xs leading-relaxed" style="color:var(--text-mid)"></pre>
+      </details>
+    `;
+    div.querySelector('pre').textContent = content;
+    addToGroup(div);
+  }
+
+  function addErrorMessage(content) {
+    const div = document.createElement('div');
+    div.className = 'msg-card';
+    div.style.borderLeft = '2px solid var(--neon-red)';
+    div.style.color = 'var(--neon-red)';
+    div.textContent = content;
+    addToGroup(div);
+  }
+
+  function showActivity(text) {
+    activityText.textContent = (text || 'PROCESSING...').toUpperCase();
+    activityBar.classList.remove('hidden');
+  }
+
+  function hideActivity() {
+    activityBar.classList.add('hidden');
+  }
+
+  function setBusy(val) {
+    busy = val;
+    if (val) {
+      sendBtn.classList.add('hidden');
+      stopBtn.classList.remove('hidden');
+      input.disabled = true;
+    } else {
+      sendBtn.classList.remove('hidden');
+      stopBtn.classList.add('hidden');
+      input.disabled = false;
+      input.focus();
+    }
+  }
+
+  /* ---- Form submission ---- */
+
+  form.addEventListener('submit', (e) => {
+    e.preventDefault();
+    const text = input.value.trim();
+    if (!text || !ws || ws.readyState !== WebSocket.OPEN || busy) return;
+
+    addUserMessage(text);
+    ws.send(JSON.stringify({ type: 'message', content: text }));
+    input.value = '';
+    setBusy(true);
+  });
+
+  stopBtn.addEventListener('click', () => {
+    if (ws && ws.readyState === WebSocket.OPEN) {
+      ws.send(JSON.stringify({ type: 'cancel' }));
+    }
+  });
+
+  /* ---- Token timer ---- */
+
+  async function fetchTokenInfo() {
+    try {
+      const r = await fetch('/api/token');
+      const info = await r.json();
+      tokenExpiresAt = info.expires_at;
+      tokenHasRefresh = info.has_refresh;
+      updateTokenDisplay();
+    } catch {}
+  }
+
+  function updateTokenDisplay() {
+    const remaining = Math.max(0, tokenExpiresAt - Date.now());
+    const hours = Math.floor(remaining / 3600000);
+    const mins  = Math.floor((remaining % 3600000) / 60000);
+    const secs  = Math.floor((remaining % 60000) / 1000);
+    const pad = n => String(n).padStart(2, '0');
+
+    if (remaining <= 0) {
+      tokenTimerEl.textContent = 'TOKEN EXPIRED';
+      tokenTimerEl.className = 'token-timer critical';
+      tokenTooltip.textContent = 'OAuth token expired! Click to refresh.';
+    } else if (remaining < 3600000) {
+      // Under 1 hour — critical
+      tokenTimerEl.textContent = `TOKEN ${pad(mins)}:${pad(secs)}`;
+      tokenTimerEl.className = 'token-timer critical';
+      tokenTooltip.textContent = `Token expires in ${mins}m ${secs}s. Click to refresh.`;
+    } else if (remaining < 10800000) {
+      // Under 3 hours — warning
+      tokenTimerEl.textContent = `TOKEN ${pad(hours)}:${pad(mins)}:${pad(secs)}`;
+      tokenTimerEl.className = 'token-timer warning';
+      tokenTooltip.textContent = `Token expires in ${hours}h ${mins}m. Click to refresh.`;
+    } else {
+      tokenTimerEl.textContent = `TOKEN ${pad(hours)}:${pad(mins)}:${pad(secs)}`;
+      tokenTimerEl.className = 'token-timer ok';
+      tokenTooltip.textContent = `Token valid for ${hours}h ${mins}m`;
+    }
+  }
+
+  tokenTimerEl.addEventListener('click', async () => {
+    tokenTimerEl.textContent = 'REFRESHING...';
+    tokenTimerEl.className = 'token-timer warning';
+    try {
+      const r = await fetch('/api/token/refresh', { method: 'POST' });
+      const info = await r.json();
+      tokenExpiresAt = info.expires_at;
+      tokenHasRefresh = info.has_refresh;
+      updateTokenDisplay();
+      // Also refresh tool status since Claude indicator may change
+      fetchToolStatus();
+    } catch {
+      tokenTimerEl.textContent = 'REFRESH FAILED';
+      tokenTimerEl.className = 'token-timer critical';
+    }
+  });
+
+  // Tick every second
+  setInterval(updateTokenDisplay, 1000);
+
+  /* ---- Init ---- */
+
+  fetchPersona();
+  fetchToolStatus();
+  fetchTokenInfo();
+  setInterval(fetchToolStatus, 30000);
+  setInterval(fetchTokenInfo, 300000); // re-fetch token info every 5 min
+  connect();
+  input.focus();
+  </script>
+</body>
+</html>
