@@ -576,6 +576,7 @@
     const providerStatusEl = document.getElementById('provider-status');
 
     const AGENTS = {
+      user:   { label: () => "You",      badgeClass: "badge-user",    borderClass: "agent-user"    },
       claude:  { label: () => personaName, badgeClass: 'badge-persona', borderClass: 'agent-claude'  },
       minimax: { label: () => 'MiniMax',   badgeClass: 'badge-minimax', borderClass: 'agent-minimax' },
       system:  { label: () => 'System',    badgeClass: 'badge-system',  borderClass: 'agent-system'  },
@@ -1003,8 +1004,11 @@
             for (const a of exchange.assistant) {
               addMessage({ agent: a.agent, content: a.content });
             }
+          } else if (typeof exchange.assistant === 'string') {
+            // Old format: assistant is just a string
+            addMessage({ agent: 'minimax', content: exchange.assistant });
           } else if (exchange.assistant) {
-            addMessage({ agent: exchange.assistant.agent, content: exchange.assistant.content });
+            addMessage({ agent: exchange.assistant.agent || 'minimax', content: exchange.assistant.content || '' });
           }
         }
         return;
